@@ -2,6 +2,8 @@ import express, { type Application } from "express";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
+import escrowRoutes from "./routes/escrowRoutes.js";
+import squadRoutes from "./routes/squadRoutes.js";
 
 /**
  * Express application factory.
@@ -36,6 +38,8 @@ export function createApp(): Application {
   // Feature routes
   app.use("/api/auth", authRoutes);
   app.use("/api/products", productRoutes);
+  app.use("/api/escrow", escrowRoutes);
+  app.use("/api/squads", squadRoutes);
 
   return app;
 }

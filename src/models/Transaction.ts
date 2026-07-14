@@ -11,6 +11,7 @@ export interface ITransaction extends Document {
   authorizedAt?: Date;
   capturedAt?: Date;
   voidedAt?: Date;
+  buyerVote?: "Proceed" | "OptOut";
   webhookEvents: Types.Array<{
     event: string;
     receivedAt: Date;
@@ -37,6 +38,7 @@ const TransactionSchema = new Schema<ITransaction>(
     authorizedAt: { type: Date },
     capturedAt: { type: Date },
     voidedAt: { type: Date },
+    buyerVote: { type: String, enum: ["Proceed", "OptOut"] },
     webhookEvents: {
       type: [
         {
