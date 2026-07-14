@@ -1,0 +1,34 @@
+Act as a Senior Next.js & React Frontend Architect. The backend for "DiscountBazaar.PK" is officially complete. We are now initiating Phase 3: Web Portals (Next.js).
+
+Before writing any code, you MUST silently review PROJECT_CONTEXT.md to understand the design philosophy, brand identity, and the dual-checkout business logic.
+
+Your task is to initialize the Next.js (App Router) environment, configure Tailwind CSS, and build the global layout and Hybrid Homepage. Please execute the following steps:
+
+Step 1: Tailwind & Global Styles Configuration
+Update tailwind.config.ts to include our exact brand colors:
+
+Primary: oceanic: '#0F4C81'
+
+Secondary: mint: '#00E676'
+
+Background: offwhite: '#F8F9FA'
+
+Ensure the primary fonts (Inter for headings, Roboto for body text) are configured globally in layout.tsx and globals.css.
+
+Step 2: Global Layout & Navbar
+Create a Navbar component in /src/components/layout/Navbar.tsx.
+
+The Navbar must include: a clean 'DiscountBazaar.PK' text logo, a central search bar with a magnifying glass icon, and a 'Login via WhatsApp' button strictly outlined in Oceanic Blue.
+
+Update app/layout.tsx to include the Navbar at the top and set the global <body> background color to bg-offwhite.
+
+Step 3: The Hybrid Homepage UI (app/page.tsx)
+Generate a modern, mobile-responsive e-commerce homepage with the following vertical hierarchy:
+
+Hero Section: Clean typography reading "Join a Squad. Unlock Wholesale Prices." with a subtle sub-headline explaining the concept.
+
+Trending Squads (Group Buys): A horizontally scrollable carousel section. Create a reusable component SquadCard.tsx. Each card must have a placeholder product image, a strikethrough retail price, an active squad price in bold Oceanic Blue, and a visual progress bar filled with Electric Mint showing "15/30 Joined". The primary button must read "Join this Squad".
+
+Standard Product Grid: Below the carousel, add a grid layout titled "Shop All" for standard single-item purchases. Create a reusable component ProductCard.tsx. This card should be distinct from the Squad card (no progress bars), showing just the image, title, standard price, and a subtle gray/outline "Add to Cart" button.
+
+Provide the complete code for tailwind.config.ts, globals.css, layout.tsx, Navbar.tsx, SquadCard.tsx, ProductCard.tsx, and page.tsx. Use standard placeholder divs or generic image URLs where necessary. Keep the code highly modular and perfectly typed.

@@ -1,0 +1,1 @@
+- [Local Mongo/Redis + Next.js dev on Replit](local-mongo-redis-nextjs-replit.md) — workflow port list, mongod/redis fork gotchas, Next allowedDevOrigins wildcard doesn't work.

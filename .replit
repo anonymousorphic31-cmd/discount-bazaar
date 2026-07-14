@@ -4,3 +4,60 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+JWT_EXPIRES_IN = "7d"
+JWT_SECRET = "75b33cf3e64a4c05aae854cf2fae7898c2f86f084bfdc24929dc00d0a08a83e0c567ec3799abe00c8e5e9e4e36035916"
+MONGODB_URI = "mongodb://127.0.0.1:27017/discountbazaar"
+NODE_ENV = "development"
+PORT = "8000"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend"
+
+[[workflows.workflow]]
+name = "Backend"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "mkdir -p /home/runner/workspace/.data/mongodb /home/runner/workspace/.data/redis; mongod --fork --dbpath /home/runner/workspace/.data/mongodb --port 27017 --bind_ip 127.0.0.1 --logpath /home/runner/workspace/.data/mongodb/mongod.log; redis-server --port 6379 --bind 127.0.0.1 --daemonize yes --dir /home/runner/workspace/.data/redis --logfile /home/runner/workspace/.data/redis/redis.log; npm run dev"
+waitForPort = 8000
+
+[[workflows.workflow]]
+name = "Frontend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd web && npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 8000
+externalPort = 80

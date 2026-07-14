@@ -51,6 +51,26 @@ export const getAllProducts = asyncHandler(
 );
 
 /**
+ * GET /api/products/categories
+ * Public. Returns the distinct set of categories currently in use across
+ * active products, with a product count for each — powers the homepage
+ * "Shop by Category" rail without any hardcoded category list.
+ */
+export const getCategories = asyncHandler(
+  async (_req: Request, res: Response): Promise<void> => {
+    const categories = await Product.aggregate<{ _id: string; count: number }>([
+      { $match: { isActive: true } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]);
+
+    res.status(200).json({
+      data: categories.map((c) => ({ name: c._id, productCount: c.count })),
+    });
+  },
+);
+
+/**
  * GET /api/products/:id
  * Public. Returns a single active product by its ObjectId.
  */

@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/*
+ * Brand tokens for DiscountBazaar.PK (see PROJECT_CONTEXT.md).
+ * Tailwind v4 is CSS-first: declaring these inside @theme generates the
+ * matching utilities automatically — bg-oceanic, text-mint, bg-offwhite, etc.
+ */
+@theme {
+  --color-oceanic: #0f4c81;
+  --color-oceanic-dark: #0b3a63;
+  --color-mint: #00e676;
+  --color-mint-dark: #00b85f;
+  --color-offwhite: #f8f9fa;
+
+  --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-offwhite);
+  color: #0b1220;
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}

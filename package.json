@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"(eslint not yet configured)\" && exit 0"
+    "lint": "echo \"(eslint not yet configured)\" && exit 0",
+    "seed": "tsx scripts/seed.ts"
   },
   "engines": {
     "node": ">=20"
