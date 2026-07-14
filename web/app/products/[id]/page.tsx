@@ -1,14 +1,29 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { fetchProductById } from "@/lib/api";
-import { formatPKR } from "@/lib/format";
+import { fetchActiveSquadForProduct, fetchProductById } from "@/lib/api";
+import { DualCheckout } from "@/components/product/DualCheckout";
 import { AddToCartButton } from "@/components/home/AddToCartButton";
+import { formatPKR } from "@/lib/format";
+import type { Product } from "@/lib/types";
+
+function SoloOnlyCheckout({ product }: { product: Product }) {
+  return (
+    <div className="mt-6">
+      <p className="text-2xl font-bold text-oceanic">{formatPKR(product.pricing.currentRetailPrice)}</p>
+      <div className="mt-4">
+        <AddToCartButton productId={product._id} />
+      </div>
+    </div>
+  );
+}
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const product = await fetchProductById(id).catch(() => null);
   if (!product) notFound();
+
+  const activeSquad = product.dualCheckoutEnabled ? await fetchActiveSquadForProduct(product._id) : null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -26,29 +41,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <h1 className="mt-2 font-heading text-2xl font-bold text-slate-900">{product.title}</h1>
           <p className="mt-3 text-sm text-slate-500">{product.description}</p>
 
-          <div className="mt-6 flex items-baseline gap-3">
-            <span className="text-2xl font-bold text-oceanic">
-              {formatPKR(product.pricing.currentRetailPrice)}
-            </span>
-            {product.dualCheckoutEnabled && (
-              <span className="text-sm text-slate-400 line-through">
-                {formatPKR(product.pricing.marketAnchorPrice)}
-              </span>
-            )}
-          </div>
-
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <AddToCartButton productId={product._id} />
-            {product.dualCheckoutEnabled && (
-              <button
-                disabled
-                title="Squad checkout is part of the escrow flow, coming in the next phase"
-                className="w-full rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-400 sm:w-auto"
-              >
-                Join a Toli (coming soon)
-              </button>
-            )}
-          </div>
+          {product.dualCheckoutEnabled ? (
+            <DualCheckout product={product} activeSquad={activeSquad} />
+          ) : (
+            <SoloOnlyCheckout product={product} />
+          )}
         </div>
       </div>
     </div>

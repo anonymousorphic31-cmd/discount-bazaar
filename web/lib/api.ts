@@ -1,4 +1,4 @@
-import type { Category, Paginated, Product, Squad } from "./types";
+import type { Category, Order, Paginated, Product, Squad, SquadVote } from "./types";
 
 /**
  * Server Components (and any server-side code) talk to the Express API
@@ -16,11 +16,16 @@ function baseUrl(): string {
   return typeof window === "undefined" ? INTERNAL_API_URL : "";
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+interface ApiFetchOptions extends RequestInit {
+  token?: string | null;
+}
+
+async function apiFetch<T>(path: string, { token, ...init }: ApiFetchOptions = {}): Promise<T> {
   const res = await fetch(`${baseUrl()}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
     // Homepage catalog data changes whenever the admin publishes — never
@@ -66,6 +71,91 @@ export async function fetchProducts(options: FetchProductsOptions = {}): Promise
 
 export async function fetchProductById(id: string): Promise<Product> {
   const result = await apiFetch<{ data: Product }>(`/api/products/${id}`);
+  return result.data;
+}
+
+/** Finds the current Gathering squad for a product, if one exists, so the PDP can show its live progress. */
+export async function fetchActiveSquadForProduct(productId: string): Promise<Squad | null> {
+  const squads = await fetchActiveSquads(50);
+  return squads.find((squad) => squad.productId._id === productId) ?? null;
+}
+
+export interface EscrowCheckoutResult {
+  trackerId: string;
+  checkoutUrl: string;
+  holdAmount: number;
+  productId: string;
+  squadId: string | null;
+}
+
+export async function initiateEscrowCheckout(
+  productId: string,
+  squadId: string | undefined,
+  token: string,
+): Promise<EscrowCheckoutResult> {
+  const result = await apiFetch<{ data: EscrowCheckoutResult }>("/api/escrow/checkout", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ productId, squadId }),
+  });
+  return result.data;
+}
+
+/**
+ * In production, Safepay calls this webhook once the buyer authorizes the
+ * hold on their hosted checkout page. There is no real payment gateway wired
+ * up yet (see src/utils/safepay.ts), so nothing will ever call this
+ * automatically in this environment — the frontend fires it itself right
+ * after checkout to reconcile squad membership, exactly like Safepay would.
+ */
+export async function simulateEscrowAuthorization(params: {
+  trackerId: string;
+  amount: number;
+  productId: string;
+  squadId: string | null;
+  buyerId: string;
+}): Promise<void> {
+  await apiFetch("/api/escrow/webhook", {
+    method: "POST",
+    body: JSON.stringify({
+      event: "authorization.success",
+      data: {
+        tracker_id: params.trackerId,
+        amount: params.amount,
+        metadata: {
+          productId: params.productId,
+          squadId: params.squadId ?? undefined,
+          buyerId: params.buyerId,
+        },
+      },
+    }),
+  });
+}
+
+export async function fetchMySquads(token: string): Promise<Squad[]> {
+  const result = await apiFetch<{ data: Squad[] }>("/api/squads/me", { token });
+  return result.data;
+}
+
+export async function voteOnSquad(
+  squadId: string,
+  vote: SquadVote,
+  token: string,
+): Promise<{ squadId: string; vote: SquadVote; transactionState: string }> {
+  const backendVote = vote === "OptOut" ? "Opt_Out" : "Proceed";
+  const result = await apiFetch<{ data: { squadId: string; vote: SquadVote; transactionState: string } }>(
+    `/api/squads/${squadId}/vote`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ vote: backendVote }),
+    },
+  );
+  return result.data;
+}
+
+export async function fetchMyOrders(token: string): Promise<Order[]> {
+  const result = await apiFetch<{ data: Order[] }>("/api/orders/me", { token });
   return result.data;
 }
 

@@ -1,0 +1,45 @@
+Act as a Senior Next.js & React Frontend Architect. Phase 3.1 is fully live with database seeding and WhatsApp OTP authentication wired up. We are now executing Phase 3.2: Dual-Checkout Integration & The Buyer Dashboard.
+
+Your task is to build out the Dual-Checkout UI, connect the Safepay escrow initiation, and build the protected dashboard for buyers. Please execute the following steps:
+
+Step 1: Dual-Checkout Product Detail Page (PDP)
+Update app/products/[id]/page.tsx (or the respective component).
+
+Implement the Dual-Checkout Section side-by-side:
+
+Card 1 (Left): "Buy Now - PKR [Retail Price]" with a standard gray/outline button. This adds to the client-side cart or proceeds to a standard checkout.
+
+Card 2 (Right): "Join Toli - PKR [Dynamic Squad Price]" with a prominent Oceanic Blue button. Below it, show a light gray 'Financial Breakdown' card: 🔒 Secure 24-Hour Hold: PKR [10% Deposit] Today. PKR [Remaining] on Delivery.
+
+Auth Guarding: If a user clicks "Join Toli" and is not logged in, trigger the WhatsApp OTP modal.
+
+Step 2: Escrow API Integration (Join Toli)
+Create an API utility/service (e.g., src/lib/api/escrow.ts or inline in the component) to handle the POST /api/escrow/initiate call.
+
+When an authenticated user clicks "Join Toli", send the productId (and squadId if they are joining an active one) to the backend.
+
+The backend will return a mock Safepay checkout_url. Redirect the user's browser to this mock URL. (For testing purposes, simply redirecting to a success page like /dashboard?success=true is acceptable for now to simulate a successful Safepay hold).
+
+Step 3: The Buyer Dashboard (app/dashboard/page.tsx)
+Create a protected route for the Buyer Dashboard. If no valid JWT is found, redirect to the homepage.
+
+The UI should have a sidebar or top tabs: "Active Pledges (Tolis)" and "Order History".
+
+Active Pledges Tab: Fetch the user's data from GET /api/squads/my-squads.
+
+Display each active Toli with a progress bar.
+
+The Voting UI: If a returned squad has status: 'Voting', display a high-priority alert card. Show two massive, full-width buttons stacked vertically:
+
+Button 1: Solid Oceanic Blue reading "PROCEED (Capture Deposit & Dispatch)".
+
+Button 2: White with a red border reading "OPT-OUT (Instantly Release My Funds)".
+
+Wire these buttons to the POST /api/squads/:squadId/vote endpoint.
+
+Step 4: Order History Tab
+Fetch data from GET /api/orders/me (or equivalent).
+
+Display standard orders and resolved Squad orders. Include a visual timeline for the logistics_status (e.g., Pending -> In Transit -> Delivered).
+
+Ensure all UI components strictly follow the Tailwind design system established in the previous phase. Handle loading states and API errors gracefully. Provide the complete code for the updated PDP, the new Dashboard page, and any necessary API hook/utility files.

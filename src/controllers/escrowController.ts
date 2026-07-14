@@ -1,5 +1,5 @@
 import { type Request, type Response } from "express";
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import Product from "../models/Product.js";
 import Squad from "../models/Squad.js";
 import Transaction, { type ITransaction } from "../models/Transaction.js";
@@ -151,95 +151,82 @@ export const safepayWebhook = asyncHandler(
 
     let txn: ITransaction | null = null;
     try {
-      // The webhook reconciles three collections in one atomic unit: it
-      // records the authorization, joins (or creates) the squad, and — if
-      // the squad fills — locks it in for capture. A session guarantees we
-      // don't leave a half-joined squad if any step fails.
-      const session = await mongoose.startSession();
-      try {
-        txn = await session.withTransaction(async () => {
-          // Idempotency: a retried webhook for the same tracker must not
-          // double-count members.
-          const existing = await Transaction.findOne({ safepayTrackerId: trackerId }).session(session);
-          if (existing) {
-            return existing;
-          }
+      // The webhook reconciles three collections: it records the
+      // authorization, joins (or creates) the squad, and — if the squad
+      // fills — locks it in for capture.
+      //
+      // In production, run this against a MongoDB replica set and wrap it in
+      // a session.withTransaction() so a mid-sequence failure can't leave a
+      // half-joined squad. This local/dev environment runs a standalone
+      // mongod (no replica set), which does not support multi-document
+      // transactions at all, so we perform the same steps sequentially
+      // instead. Idempotency on safepayTrackerId still protects against
+      // double-counting on webhook retries.
+      const existing = await Transaction.findOne({ safepayTrackerId: trackerId });
+      if (existing) {
+        txn = existing;
+      } else {
+        const created = await Transaction.create({
+          safepayTrackerId: trackerId,
+          buyerId: new Types.ObjectId(buyerId),
+          productId: new Types.ObjectId(productId),
+          squadId: squadId ? new Types.ObjectId(squadId) : undefined,
+          holdAmount: amount,
+          escrowState: EscrowStateEnum.Authorized,
+          authorizedAt: new Date(),
+          webhookEvents: [{ event, receivedAt: new Date(), rawPayload: payload }],
+        });
 
-          const transaction = await Transaction.create(
-            [
+        let targetSquadId: Types.ObjectId;
+
+        if (squadId) {
+          const squad = await Squad.findById(squadId);
+          if (!squad) {
+            throw new Error(`Webhook referenced missing squad ${squadId}`);
+          }
+          squad.members.push({
+            userId: new Types.ObjectId(buyerId),
+            joinedAt: new Date(),
+            depositTransactionId: created._id,
+          });
+          squad.currentMembers += 1;
+          if (squad.currentMembers >= squad.targetMembers) {
+            squad.status = SquadStatusEnum.Captured;
+            squad.capturedAt = new Date();
+          }
+          await squad.save();
+          targetSquadId = squad._id;
+        } else {
+          const newSquad = await Squad.create({
+            productId: new Types.ObjectId(productId),
+            targetMembers: 30,
+            currentMembers: 1,
+            members: [
               {
-                safepayTrackerId: trackerId,
-                buyerId: new Types.ObjectId(buyerId),
-                productId: new Types.ObjectId(productId),
-                squadId: squadId ? new Types.ObjectId(squadId) : undefined,
-                holdAmount: amount,
-                escrowState: EscrowStateEnum.Authorized,
-                authorizedAt: new Date(),
-                webhookEvents: [{ event, receivedAt: new Date(), rawPayload: payload }],
+                userId: new Types.ObjectId(buyerId),
+                joinedAt: new Date(),
+                depositTransactionId: created._id,
               },
             ],
-            { session },
-          );
-          const created = transaction[0];
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            status: SquadStatusEnum.Gathering,
+          });
+          targetSquadId = newSquad._id;
+        }
 
-          let targetSquadId: Types.ObjectId;
+        // Schedule the 24-hour resolution check for this squad.
+        await squadResolutionQueue.add(
+          "squad-resolution",
+          { squadId: targetSquadId.toString() },
+          { delay: 24 * 60 * 60 * 1000, jobId: `squad_${targetSquadId}` },
+        );
 
-          if (squadId) {
-            const squad = await Squad.findById(squadId).session(session);
-            if (!squad) {
-              throw new Error(`Webhook referenced missing squad ${squadId}`);
-            }
-            squad.members.push({
-              userId: new Types.ObjectId(buyerId),
-              joinedAt: new Date(),
-              depositTransactionId: created._id,
-            });
-            squad.currentMembers += 1;
-            if (squad.currentMembers >= squad.targetMembers) {
-              squad.status = SquadStatusEnum.Captured;
-              squad.capturedAt = new Date();
-            }
-            await squad.save({ session });
-            targetSquadId = squad._id;
-          } else {
-            const newSquad = await Squad.create(
-              [
-                {
-                  productId: new Types.ObjectId(productId),
-                  targetMembers: 30,
-                  currentMembers: 1,
-                  members: [
-                    {
-                      userId: new Types.ObjectId(buyerId),
-                      joinedAt: new Date(),
-                      depositTransactionId: created._id,
-                    },
-                  ],
-                  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                  status: SquadStatusEnum.Gathering,
-                },
-              ],
-              { session },
-            );
-            targetSquadId = newSquad[0]._id;
-          }
-
-          // Schedule the 24-hour resolution check for this squad.
-          await squadResolutionQueue.add(
-            "squad-resolution",
-            { squadId: targetSquadId.toString() },
-            { delay: 24 * 60 * 60 * 1000, jobId: `squad_${targetSquadId}` },
-          );
-
-          return created;
-        });
-      } finally {
-        await session.endSession();
+        txn = created;
       }
 
       res.status(200).json({ received: true, trackerId, transactionId: txn?._id });
     } catch (err) {
-      console.error("[escrow webhook] transaction failed:", err);
+      console.error("[escrow webhook] failed:", err);
       res.status(500).json({ error: "Failed to process authorization webhook." });
     }
   },

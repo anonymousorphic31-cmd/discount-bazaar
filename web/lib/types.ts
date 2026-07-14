@@ -30,13 +30,63 @@ export interface SquadProductSummary {
   pricing: ProductPricing;
 }
 
+export type SquadVote = "Proceed" | "OptOut";
+
+export interface SquadMember {
+  userId: string;
+  joinedAt: string;
+  depositTransactionId: string;
+  vote?: SquadVote;
+}
+
+export type SquadStatus = "Gathering" | "Voting" | "Captured" | "Resolved" | "Failed";
+
 export interface Squad {
   _id: string;
   productId: SquadProductSummary;
   targetMembers: number;
   currentMembers: number;
+  members: SquadMember[];
   expiresAt: string;
-  status: "Gathering" | "Voting" | "Captured" | "Voided";
+  status: SquadStatus;
+}
+
+export type PurchaseType = "Squad" | "Standard";
+
+export type LogisticsStatus =
+  | "Pending_Dispatch"
+  | "Packed"
+  | "Shipped"
+  | "Out_for_Delivery"
+  | "Delivered"
+  | "Cancelled"
+  | "Returned";
+
+export interface OrderTotals {
+  unitPrice: number;
+  quantity: number;
+  discountRate: number;
+  discountAmount: number;
+  subtotal: number;
+  shipping: number;
+  platformFee: number;
+  supplierPayout: number;
+  total: number;
+  depositPaid: number;
+  codAmountDue: number;
+}
+
+export interface Order {
+  _id: string;
+  productId: SquadProductSummary;
+  squadId?: string;
+  purchaseType: PurchaseType;
+  logisticsStatus: LogisticsStatus;
+  totals: OrderTotals;
+  trackingNumber?: string;
+  courier?: string;
+  deliveredAt?: string;
+  createdAt: string;
 }
 
 export interface Category {

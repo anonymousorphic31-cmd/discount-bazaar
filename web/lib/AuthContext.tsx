@@ -6,6 +6,8 @@ import type { AuthUser } from "./types";
 interface AuthState {
   user: AuthUser | null;
   token: string | null;
+  /** True once the localStorage check on mount has finished — protected pages should wait for this before deciding to redirect. */
+  isHydrated: boolean;
   isLoginOpen: boolean;
   openLogin: () => void;
   closeLogin: () => void;
@@ -21,23 +23,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoginOpen, setLoginOpen] = useState(false);
+  const [isHydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as { token: string; user: AuthUser };
-      setToken(parsed.token);
-      setUser(parsed.user);
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { token: string; user: AuthUser };
+        setToken(parsed.token);
+        setUser(parsed.user);
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
     }
+    setHydrated(true);
   }, []);
 
   const value = useMemo<AuthState>(
     () => ({
       user,
       token,
+      isHydrated,
       isLoginOpen,
       openLogin: () => setLoginOpen(true),
       closeLogin: () => setLoginOpen(false),
@@ -53,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.localStorage.removeItem(STORAGE_KEY);
       },
     }),
-    [user, token, isLoginOpen],
+    [user, token, isHydrated, isLoginOpen],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

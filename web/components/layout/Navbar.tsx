@@ -75,12 +75,20 @@ export function Navbar() {
             </Link>
 
             {user ? (
-              <button
-                onClick={logout}
-                className="rounded-full border border-oceanic px-4 py-1.5 text-sm font-medium text-oceanic transition hover:bg-oceanic hover:text-white"
-              >
-                {user.name.split(" ")[0]} · Log out
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/dashboard"
+                  className="hidden text-sm font-medium text-slate-600 hover:text-oceanic sm:inline"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={logout}
+                  className="rounded-full border border-oceanic px-4 py-1.5 text-sm font-medium text-oceanic transition hover:bg-oceanic hover:text-white"
+                >
+                  {user.name.split(" ")[0]} · Log out
+                </button>
+              </div>
             ) : (
               <button
                 onClick={openLogin}
