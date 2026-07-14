@@ -1,0 +1,167 @@
+import { type Request, type Response } from "express";
+import { Types } from "mongoose";
+import Product from "../models/Product.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+interface GetProductsQuery {
+  category?: string;
+  page?: string;
+  limit?: string;
+  sort?: string;
+  search?: string;
+}
+
+/**
+ * GET /api/products
+ * Public. Returns a paginated list of active products with optional category
+ * filter, text search, and sort.
+ */
+export const getAllProducts = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const { category, page, limit, sort, search } = req.query as GetProductsQuery;
+
+    const filter: Record<string, unknown> = { isActive: true };
+    if (category) filter.category = category;
+    if (search) filter.$text = { $search: search };
+
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(50, Math.max(1, Number(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    // sort=price|createdAt|-createdAt|... → mongoose sort object
+    let sortOption: Record<string, 1 | -1> = { createdAt: -1 };
+    if (sort === "price") sortOption = { "pricing.currentRetailPrice": 1 };
+    else if (sort === "-price") sortOption = { "pricing.currentRetailPrice": -1 };
+
+    const [items, total] = await Promise.all([
+      Product.find(filter).sort(sortOption).skip(skip).limit(limitNum).lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      data: items,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum) || 0,
+      },
+    });
+  },
+);
+
+/**
+ * GET /api/products/:id
+ * Public. Returns a single active product by its ObjectId.
+ */
+export const getProductById = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: "Invalid product id." });
+      return;
+    }
+
+    const product = await Product.findOne({ _id: id, isActive: true }).lean();
+    if (!product) {
+      res.status(404).json({ error: "Product not found." });
+      return;
+    }
+
+    res.status(200).json({ data: product });
+  },
+);
+
+interface CreateProductBody {
+  title?: string;
+  description?: string;
+  images?: string[];
+  category?: string;
+  supplierId?: string;
+  market_anchor_price?: number;
+  base_wholesale_cost?: number;
+  max_squad_discount_percent?: number;
+  dualCheckoutEnabled?: boolean;
+  maxSquadMembers?: number;
+}
+
+/**
+ * POST /api/products/admin/upload
+ * Admin-only. Creates a new product. Pricing fields are accepted in the
+ * business-friendly snake_case names from the spec and mapped to the schema.
+ */
+export const createProduct = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as CreateProductBody;
+
+    const {
+      title,
+      description,
+      images,
+      category,
+      supplierId,
+      market_anchor_price,
+      base_wholesale_cost,
+      max_squad_discount_percent,
+      dualCheckoutEnabled,
+      maxSquadMembers,
+    } = body;
+
+    if (!title || !description || !category || !supplierId) {
+      res.status(400).json({
+        error: "title, description, category, and supplierId are required.",
+      });
+      return;
+    }
+    if (
+      market_anchor_price == null ||
+      base_wholesale_cost == null ||
+      max_squad_discount_percent == null
+    ) {
+      res.status(400).json({
+        error: "market_anchor_price, base_wholesale_cost, and max_squad_discount_percent are required.",
+      });
+      return;
+    }
+    if (!Types.ObjectId.isValid(supplierId)) {
+      res.status(400).json({ error: "Invalid supplierId." });
+      return;
+    }
+
+    // Validation: wholesale cost cannot exceed anchor price; discount in 0–100.
+    if (base_wholesale_cost > market_anchor_price) {
+      res
+        .status(400)
+        .json({ error: "base_wholesale_cost cannot exceed market_anchor_price." });
+      return;
+    }
+    if (max_squad_discount_percent < 0 || max_squad_discount_percent > 100) {
+      res.status(400).json({ error: "max_squad_discount_percent must be between 0 and 100." });
+      return;
+    }
+
+    const slug =
+      title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") +
+      "-" + Date.now().toString(36);
+
+    const product = await Product.create({
+      title,
+      slug,
+      description,
+      images: images ?? [],
+      category,
+      supplierId: new Types.ObjectId(supplierId),
+      pricing: {
+        marketAnchorPrice: market_anchor_price,
+        baseWholesaleCost: base_wholesale_cost,
+        maxSquadDiscount: max_squad_discount_percent / 100,
+        currentRetailPrice: market_anchor_price,
+      },
+      dualCheckoutEnabled: dualCheckoutEnabled ?? true,
+      maxSquadMembers: maxSquadMembers ?? 30,
+      isActive: true,
+    });
+
+    res.status(201).json({ data: product });
+  },
+);

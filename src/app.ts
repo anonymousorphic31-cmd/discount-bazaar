@@ -1,5 +1,7 @@
 import express, { type Application } from "express";
 import cors from "cors";
+import authRoutes from "./routes/authRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
 
 /**
  * Express application factory.
@@ -30,6 +32,10 @@ export function createApp(): Application {
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", uptime: process.uptime() });
   });
+
+  // Feature routes
+  app.use("/api/auth", authRoutes);
+  app.use("/api/products", productRoutes);
 
   return app;
 }
