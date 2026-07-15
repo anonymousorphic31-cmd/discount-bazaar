@@ -15,6 +15,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@sfpy/node-sdk": "^3.0.2",
     "@types/multer": "^2.2.0",
     "bullmq": "^5.80.2",
     "cloudinary": "^2.10.0",

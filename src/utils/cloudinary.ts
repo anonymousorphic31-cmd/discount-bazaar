@@ -25,8 +25,9 @@ function ensureConfigured(): void {
 }
 
 /**
- * Uploads a file buffer to Cloudinary and returns the secure URL.
- * Uses a folder named "discountbazaar" to keep assets organized.
+ * Uploads a file buffer (from multer memoryStorage) to Cloudinary
+ * using upload_stream, which accepts a Buffer directly — no temp file needed.
+ * Returns the secure URL of the uploaded asset.
  */
 export async function uploadToCloudinary(
   file: Express.Multer.File,
@@ -34,12 +35,28 @@ export async function uploadToCloudinary(
 ): Promise<string> {
   ensureConfigured();
 
-  const result = await cloudinary.uploader.upload(file.path, {
-    folder: "discountbazaar",
-    resource_type: resourceType,
-  });
+  return new Promise<string>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "discountbazaar",
+        resource_type: resourceType,
+      },
+      (err, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        if (!result) {
+          reject(new Error("Cloudinary returned no result."));
+          return;
+        }
+        resolve(result.secure_url);
+      },
+    );
 
-  return result.secure_url;
+    // Write the buffer into the stream
+    stream.end(file.buffer);
+  });
 }
 
 export { ensureConfigured };

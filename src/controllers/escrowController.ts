@@ -119,7 +119,7 @@ interface SafepayWebhookPayload {
 export const safepayWebhook = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const signature = req.headers["safepay-signature"] as string | undefined;
-    const rawBody = JSON.stringify(req.body ?? {});
+    const rawBody = (req.rawBody as string | undefined) ?? JSON.stringify(req.body ?? {});
 
     if (!verifyWebhookSignature(signature, rawBody)) {
       res.status(401).json({ error: "Invalid webhook signature." });

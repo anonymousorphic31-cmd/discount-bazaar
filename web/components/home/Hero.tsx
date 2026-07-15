@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-oceanic via-oceanic-dark to-[#082f52]">
+    <section className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden bg-oceanic">
       {/* Decorative glow accents */}
       <div
         aria-hidden
@@ -23,7 +23,7 @@ export function Hero() {
         }}
       />
 
-      <div className="relative mx-auto max-w-3xl px-6 py-16 text-center sm:py-20">
+      <div className="relative mx-auto max-w-3xl px-6 py-20 text-center">
         <h1 className="font-heading text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
           Buy Together, <span className="text-mint">Save Together</span>
         </h1>
@@ -48,12 +48,6 @@ export function Hero() {
           </Link>
         </div>
       </div>
-
-      {/* Smooth fade into the page background */}
-      <div
-        aria-hidden
-        className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-offwhite"
-      />
     </section>
   );
 }

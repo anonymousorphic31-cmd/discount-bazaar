@@ -1,4 +1,4 @@
-import express, { type Application } from "express";
+import express, { type Application, type Request } from "express";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -31,7 +31,19 @@ export function createApp(): Application {
     }),
   );
 
-  app.use(express.json({ limit: "1mb" }));
+  // Capture the raw body for the Safepay webhook so we can verify the
+  // signature against the exact bytes Safepay signed. The raw string is
+  // stashed on req.rawBody before JSON parsing happens.
+  app.use(
+    express.json({
+      limit: "2mb",
+      verify: (req: Request, _res, buf) => {
+        if (req.url?.startsWith("/api/escrow/webhook")) {
+          req.rawBody = buf.toString("utf8");
+        }
+      },
+    }),
+  );
   app.use(express.urlencoded({ extended: true }));
 
   app.get("/health", (_req, res) => {
