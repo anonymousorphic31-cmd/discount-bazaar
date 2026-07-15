@@ -276,10 +276,83 @@ export const getSupplierManifests = asyncHandler(
       logisticsStatus: LogisticsEnum.PendingDispatch,
     })
       .populate({ path: "productId", select: "title slug images category pricing" })
-      .populate({ path: "buyerId", select: "phoneNumber fullName" })
+      .populate({ path: "buyerId", select: "phoneNumber name" })
       .sort({ createdAt: -1 })
       .lean();
 
     res.status(200).json({ data: orders });
+  },
+);
+
+/* ------------------------------------------------------------------ */
+/* Step 2.5 — updateOrderTracking (Supplier)                          */
+/* ------------------------------------------------------------------ */
+
+interface UpdateTrackingBody {
+  trackingNumber?: string;
+  courier?: string;
+}
+
+/**
+ * PUT /api/orders/:id/tracking
+ * Protected (Supplier). Lets the supplier attach a courier tracking number
+ * once they've dispatched an order — pushes it from Pending_Dispatch to
+ * Packed. Only the supplier who owns the order may update it.
+ */
+export const updateOrderTracking = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const supplierId = req.user?.userId;
+    const { id } = req.params;
+    const { trackingNumber, courier } = req.body as UpdateTrackingBody;
+
+    if (!supplierId) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+    if (!id || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: "A valid order id is required." });
+      return;
+    }
+    if (!trackingNumber || !trackingNumber.trim()) {
+      res.status(400).json({ error: "trackingNumber is required." });
+      return;
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      res.status(404).json({ error: "Order not found." });
+      return;
+    }
+    if (order.supplierId.toString() !== supplierId) {
+      res.status(403).json({ error: "This order does not belong to you." });
+      return;
+    }
+    if (
+      order.logisticsStatus === LogisticsEnum.Delivered ||
+      order.logisticsStatus === LogisticsEnum.Cancelled ||
+      order.logisticsStatus === LogisticsEnum.Returned
+    ) {
+      res.status(409).json({ error: "This order is already in a terminal logistics state." });
+      return;
+    }
+
+    order.trackingNumber = trackingNumber.trim();
+    if (courier) {
+      order.courier = courier.trim();
+    }
+    if (order.logisticsStatus === LogisticsEnum.PendingDispatch) {
+      order.logisticsStatus = LogisticsEnum.Packed;
+    }
+    await order.save();
+
+    res.status(200).json({
+      message: "Tracking updated.",
+      data: {
+        orderId: order._id,
+        trackingNumber: order.trackingNumber,
+        courier: order.courier,
+        logisticsStatus: order.logisticsStatus,
+      },
+    });
   },
 );

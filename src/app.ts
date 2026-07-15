@@ -6,6 +6,7 @@ import escrowRoutes from "./routes/escrowRoutes.js";
 import squadRoutes from "./routes/squadRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import disputeRoutes from "./routes/disputeRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 /**
  * Express application factory.
@@ -44,6 +45,7 @@ export function createApp(): Application {
   app.use("/api/squads", squadRoutes);
   app.use("/api/orders", orderRoutes);
   app.use("/api/disputes", disputeRoutes);
+  app.use("/api/users", userRoutes);
 
   return app;
 }

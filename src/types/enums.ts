@@ -73,3 +73,11 @@ export const PurchaseType = {
   Standard: "Standard",
 } as const;
 export type PurchaseType = (typeof PurchaseType)[keyof typeof PurchaseType];
+
+export const ProductApprovalStatus = {
+  Pending: "Pending",
+  Approved: "Approved",
+  Rejected: "Rejected",
+} as const;
+export type ProductApprovalStatus =
+  (typeof ProductApprovalStatus)[keyof typeof ProductApprovalStatus];

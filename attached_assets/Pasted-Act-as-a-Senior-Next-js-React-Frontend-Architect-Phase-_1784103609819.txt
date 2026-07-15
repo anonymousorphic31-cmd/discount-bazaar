@@ -1,0 +1,26 @@
+Act as a Senior Next.js & React Frontend Architect. Phase 3.2 is complete, and the core buyer flow (OTP Auth, Checkout, Voting) is fully functional. We are now executing the final web phase—Phase 3.3: B2B Supplier Portal & Admin Command Center.
+
+Your task is to build the protected dashboards for the 'Admin' and 'Supplier' roles. Please execute the following steps:
+
+Step 1: Client-Side Role Guarding
+Create a utility or higher-order component (e.g., src/components/auth/RoleGuard.tsx) that checks the user's JWT role.
+
+If a Buyer tries to access /admin or /supplier, immediately redirect them to /dashboard or /.
+
+Step 2: The Supplier SaaS Dashboard (app/supplier/page.tsx)
+Create a protected layout specifically for suppliers. Left sidebar: Oceanic Blue #0F4C81.
+
+Tab 1 - Propose Deal: Build a multi-step form connecting to PUT /api/products/supplier/propose. Inputs: Product Title, Category, Retail Anchor Price, Base Wholesale Cost, Max Discount Percentage. Include a dynamic summary card that calculates and displays: "Retail Price: X | Squad Selling Price: Y | Your Margin: Z".
+
+Tab 2 - Order Manifests: A data table fetching from GET /api/orders/manifests. Display completed Squad orders ready for dispatch. Include a button to mock downloading shipping labels and an input field to paste the Courier Tracking Link (to push back to our API).
+
+Step 3: Admin Command Center (app/admin/page.tsx)
+Create a high-density, analytical layout for Admins using the 'Inter' font.
+
+Tab 1 - Proposal Queue: Fetch pending products. Display a table (Supplier, Product, Proposed Prices). Include 'Approve' (which publishes it to the catalog) and 'Reject' buttons.
+
+Tab 2 - Direct Listing: A form connecting to POST /api/products/admin/upload for Admins to bypass suppliers and directly inject inventory onto the platform.
+
+Tab 3 - Conflict Resolution & Ledger: Fetch active tickets from GET /api/disputes. Display buyer complaints (Wrong Item/Defective). Provide two action buttons for the Admin: 'Route to Dropshipper' (Reject) or 'Force Refund' (which connects to our Safepay refund mock and voids the ledger).
+
+Ensure the UI is highly legible, data-dense, and maintains our Oceanic Blue and Electric Mint color scheme. Handle all API loading states and provide clean error toasts/notifications for form submissions. Provide the complete code for the new role guards, the Admin page, and the Supplier page.

@@ -128,8 +128,8 @@ export const getAdminDisputes = asyncHandler(
     const [items, total] = await Promise.all([
       Dispute.find(filter)
         .populate({ path: "orderId", select: "purchaseType totals logisticsStatus" })
-        .populate({ path: "buyerId", select: "phoneNumber fullName" })
-        .populate({ path: "supplierId", select: "phoneNumber fullName" })
+        .populate({ path: "buyerId", select: "phoneNumber name" })
+        .populate({ path: "supplierId", select: "phoneNumber name" })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)

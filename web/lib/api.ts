@@ -1,4 +1,15 @@
-import type { Category, Order, Paginated, Product, Squad, SquadVote } from "./types";
+import type {
+  Category,
+  Dispute,
+  ManifestOrder,
+  Order,
+  Paginated,
+  PendingProduct,
+  Product,
+  Squad,
+  SquadVote,
+  SupplierSummary,
+} from "./types";
 
 /**
  * Server Components (and any server-side code) talk to the Express API
@@ -175,4 +186,118 @@ export async function verifyWhatsappOtp(
     method: "POST",
     body: JSON.stringify({ phoneNumber, otp, name }),
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Supplier proposals + Admin proposal queue                          */
+/* ------------------------------------------------------------------ */
+
+export interface ProposeProductPayload {
+  title: string;
+  description: string;
+  images: string[];
+  category: string;
+  market_anchor_price: number;
+  base_wholesale_cost: number;
+  max_squad_discount_percent: number;
+  dualCheckoutEnabled?: boolean;
+  maxSquadMembers?: number;
+}
+
+export async function proposeProduct(payload: ProposeProductPayload, token: string): Promise<Product> {
+  const result = await apiFetch<{ data: Product }>("/api/products/supplier/propose", {
+    method: "PUT",
+    token,
+    body: JSON.stringify(payload),
+  });
+  return result.data;
+}
+
+export async function uploadProductDirect(
+  payload: ProposeProductPayload & { supplierId: string },
+  token: string,
+): Promise<Product> {
+  const result = await apiFetch<{ data: Product }>("/api/products/admin/upload", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+  });
+  return result.data;
+}
+
+export async function fetchPendingProducts(token: string): Promise<PendingProduct[]> {
+  const result = await apiFetch<{ data: PendingProduct[] }>("/api/products/admin/pending", { token });
+  return result.data;
+}
+
+export async function approveProduct(productId: string, token: string): Promise<Product> {
+  const result = await apiFetch<{ data: Product }>(`/api/products/${productId}/approve`, {
+    method: "PUT",
+    token,
+  });
+  return result.data;
+}
+
+export async function rejectProduct(productId: string, token: string): Promise<Product> {
+  const result = await apiFetch<{ data: Product }>(`/api/products/${productId}/reject`, {
+    method: "PUT",
+    token,
+  });
+  return result.data;
+}
+
+export async function fetchSuppliers(token: string): Promise<SupplierSummary[]> {
+  const result = await apiFetch<{ data: SupplierSummary[] }>("/api/users/suppliers", { token });
+  return result.data;
+}
+
+/* ------------------------------------------------------------------ */
+/* Supplier order manifests                                           */
+/* ------------------------------------------------------------------ */
+
+export async function fetchSupplierManifests(token: string): Promise<ManifestOrder[]> {
+  const result = await apiFetch<{ data: ManifestOrder[] }>("/api/orders/manifest", { token });
+  return result.data;
+}
+
+export async function updateOrderTracking(
+  orderId: string,
+  trackingNumber: string,
+  courier: string,
+  token: string,
+): Promise<{ orderId: string; trackingNumber: string; courier?: string; logisticsStatus: string }> {
+  const result = await apiFetch<{
+    data: { orderId: string; trackingNumber: string; courier?: string; logisticsStatus: string };
+  }>(`/api/orders/${orderId}/tracking`, {
+    method: "PUT",
+    token,
+    body: JSON.stringify({ trackingNumber, courier }),
+  });
+  return result.data;
+}
+
+/* ------------------------------------------------------------------ */
+/* Admin dispute / ledger console                                     */
+/* ------------------------------------------------------------------ */
+
+export async function fetchDisputes(token: string): Promise<Dispute[]> {
+  const result = await apiFetch<{ data: Dispute[] }>("/api/disputes", { token });
+  return result.data;
+}
+
+export async function resolveDispute(
+  disputeId: string,
+  resolution: "Refund" | "Reject",
+  adminNotes: string,
+  token: string,
+): Promise<{ disputeId: string; status: string }> {
+  const result = await apiFetch<{ data: { disputeId: string; status: string } }>(
+    `/api/disputes/${disputeId}/resolve`,
+    {
+      method: "PUT",
+      token,
+      body: JSON.stringify({ resolution, admin_notes: adminNotes }),
+    },
+  );
+  return result.data;
 }

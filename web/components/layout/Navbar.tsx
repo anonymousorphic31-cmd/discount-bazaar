@@ -77,10 +77,10 @@ export function Navbar() {
             {user ? (
               <div className="flex items-center gap-2">
                 <Link
-                  href="/dashboard"
+                  href={user.role === "Admin" ? "/admin" : user.role === "Supplier" ? "/supplier" : "/dashboard"}
                   className="hidden text-sm font-medium text-slate-600 hover:text-oceanic sm:inline"
                 >
-                  Dashboard
+                  {user.role === "Admin" ? "Admin Console" : user.role === "Supplier" ? "Supplier Portal" : "Dashboard"}
                 </Link>
                 <button
                   onClick={logout}

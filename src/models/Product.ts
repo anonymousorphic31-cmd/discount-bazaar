@@ -1,4 +1,8 @@
 import mongoose, { Schema, type Document, type Model, type Types } from "mongoose";
+import {
+  type ProductApprovalStatus,
+  ProductApprovalStatus as ApprovalStatusEnum,
+} from "../types/enums.js";
 
 /* ------------------------------------------------------------------ */
 /* Pricing                                                            */
@@ -36,6 +40,10 @@ export interface IProduct extends Document {
   dualCheckoutEnabled: boolean;
   maxSquadMembers: number; // per project spec, target squad size
   isActive: boolean;
+  // Approved products are admin-uploaded (bypasses review) or supplier
+  // proposals that have cleared the admin Proposal Queue. Pending proposals
+  // are never active/visible on the storefront until approved.
+  approvalStatus: ProductApprovalStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +60,13 @@ const ProductSchema = new Schema<IProduct>(
     dualCheckoutEnabled: { type: Boolean, default: true, required: true },
     maxSquadMembers: { type: Number, required: true, min: 1, default: 30 },
     isActive: { type: Boolean, default: true, index: true },
+    approvalStatus: {
+      type: String,
+      enum: Object.values(ApprovalStatusEnum),
+      default: ApprovalStatusEnum.Approved,
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true },
 );

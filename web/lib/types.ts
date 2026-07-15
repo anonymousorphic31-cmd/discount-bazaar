@@ -7,6 +7,8 @@ export interface ProductPricing {
   currentRetailPrice: number;
 }
 
+export type ProductApprovalStatus = "Pending" | "Approved" | "Rejected";
+
 export interface Product {
   _id: string;
   title: string;
@@ -18,7 +20,19 @@ export interface Product {
   dualCheckoutEnabled: boolean;
   maxSquadMembers: number;
   isActive: boolean;
+  approvalStatus?: ProductApprovalStatus;
   createdAt: string;
+}
+
+export interface SupplierSummary {
+  _id: string;
+  name: string;
+  phoneNumber: string;
+  supplierDetails?: { companyName?: string };
+}
+
+export interface PendingProduct extends Product {
+  supplierId: SupplierSummary;
 }
 
 export interface SquadProductSummary {
@@ -89,6 +103,33 @@ export interface Order {
   createdAt: string;
 }
 
+/** A manifest row also carries the buyer's contact info for dispatch. */
+export interface ManifestOrder extends Order {
+  buyerId: { _id: string; phoneNumber: string; name: string };
+}
+
+export type DisputeIssueType =
+  | "ProductQuality"
+  | "WrongItem"
+  | "DeliveryDelay"
+  | "PaymentIssue"
+  | "Other";
+
+export type DisputeStatus = "Open" | "UnderReview" | "Resolved" | "Rejected" | "Refunded" | "Closed";
+
+export interface Dispute {
+  _id: string;
+  orderId: { _id: string; purchaseType: PurchaseType; totals: OrderTotals; logisticsStatus: LogisticsStatus };
+  buyerId: { _id: string; phoneNumber: string; name: string };
+  supplierId: { _id: string; phoneNumber: string; name: string };
+  issueType: DisputeIssueType;
+  status: DisputeStatus;
+  description: string;
+  evidenceUrls: string[];
+  resolutionNote?: string;
+  createdAt: string;
+}
+
 export interface Category {
   name: string;
   productCount: number;
@@ -104,9 +145,11 @@ export interface Paginated<T> {
   };
 }
 
+export type UserRole = "Buyer" | "Supplier" | "Admin";
+
 export interface AuthUser {
   id: string;
   phoneNumber: string;
   name: string;
-  role: "Buyer" | "Supplier" | "Admin";
+  role: UserRole;
 }

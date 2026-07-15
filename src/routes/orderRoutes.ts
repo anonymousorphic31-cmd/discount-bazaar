@@ -4,6 +4,7 @@ import {
   courierWebhook,
   getBuyerOrders,
   getSupplierManifests,
+  updateOrderTracking,
 } from "../controllers/orderController.js";
 import { requireAuth, requireRole } from "../middlewares/authMiddleware.js";
 
@@ -20,5 +21,8 @@ router.get("/me", requireAuth, getBuyerOrders);
 
 // Protected (Supplier) — pending-dispatch manifest for the supplier's products.
 router.get("/manifest", requireAuth, requireRole("Supplier"), getSupplierManifests);
+
+// Protected (Supplier) — attach a courier tracking number to an order.
+router.put("/:id/tracking", requireAuth, requireRole("Supplier"), updateOrderTracking);
 
 export default router;
