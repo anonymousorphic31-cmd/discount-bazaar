@@ -42,3 +42,11 @@
 - Enforced crash-fast boot checks for required environment variables.
 - Implemented a 15-minute `setInterval` fallback sweep for stranded BullMQ squad jobs.
 - Added `useIsMounted` hook to fix Next.js React hydration risks on date rendering.
+
+- ### Added (UI & Navigational Polish)
+- Redesigned Hero section with premium Oceanic Blue/Electric Mint gradient and responsive typography.
+- Executed global terminology replacement replacing "Toli" with "Squad".
+- Cleaned Navbar navigation to strictly feature Products, Offers, and Become a Supplier.
+- Implemented `ProductGallery` component on the PDP for rich media thumbnails.
+- Created placeholder static pages (Support, Privacy Policy, Refund Policy) and linked them in a reorganized footer.
+- Verified 100% dynamic data mapping (zero hardcoded products).
