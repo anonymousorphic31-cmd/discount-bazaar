@@ -66,13 +66,15 @@ export const resolveSupplierApplication = asyncHandler(
     application.verificationStatus = decision;
     application.reviewNote = reviewNote?.trim() || undefined;
     if (decision === "Approved") {
-      application.supplierDetails = application.supplierDetails ?? {
-        companyName: application.name,
-        contactPerson: application.name,
-        rating: 0,
-        isActive: true,
-        catalogs: [],
-      };
+      if (!application.supplierDetails) {
+        application.supplierDetails = {
+          companyName: application.name,
+          contactPerson: application.name,
+          rating: 0,
+          isActive: true,
+          catalogs: [] as unknown as import("mongoose").Types.Array<import("mongoose").Types.ObjectId>,
+        };
+      }
       application.supplierDetails.isActive = true;
     }
     await application.save();

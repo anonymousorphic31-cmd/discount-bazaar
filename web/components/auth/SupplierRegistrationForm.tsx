@@ -24,7 +24,6 @@ export function SupplierRegistrationForm() {
         dropshipNetworkId,
         contactNumber,
         cnicNtn,
-        documents,
       });
       setMessage(result.message);
       setBusinessName("");

@@ -457,7 +457,7 @@ export const updateAdminProduct = asyncHandler(
 
     if (body.title) product.title = body.title;
     if (body.description) product.description = body.description;
-    if (body.images) product.images = body.images;
+    if (body.images) product.images = body.images as unknown as Types.Array<string>;
     if (body.category) product.category = body.category;
     if (body.supplierId && Types.ObjectId.isValid(body.supplierId)) {
       product.supplierId = new Types.ObjectId(body.supplierId);
