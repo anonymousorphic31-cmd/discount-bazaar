@@ -7,7 +7,10 @@ import { closeVotingWorker, votingResolutionQueue } from "./votingResolutionWork
 /* Redis connection                                                   */
 /* ------------------------------------------------------------------ */
 
-const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
+const redisUrl = process.env.REDIS_URL;
+if (!redisUrl) {
+  throw new Error("REDIS_URL is not set in the environment.");
+}
 
 /**
  * Queue used by the escrow webhook to schedule 24-hour squad resolution.
@@ -101,8 +104,73 @@ squadWorker.on("failed", (job, err) => {
   console.error(`[squadWorker] job ${job?.id} failed: ${err.message}`);
 });
 
+/* ------------------------------------------------------------------ */
+/* Redis fallback sweep                                               */
+/* ------------------------------------------------------------------ */
+
+const SWEEP_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+let sweepTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Safety net for dropped BullMQ jobs.
+ *
+ * If Redis restarts, delayed BullMQ jobs can vanish before they fire. This
+ * sweep runs every 15 minutes and finds Squads still in Gathering or Voting
+ * past their expiration time, then manually re-enqueues their resolution so
+ * no squad is left hanging forever. Idempotent — processSquadResolution /
+ * processVotingResolution both no-op on already-resolved squads.
+ */
+async function sweepExpiredSquads(): Promise<void> {
+  const now = new Date();
+  try {
+    const expired = await Squad.find({
+      status: { $in: [SquadStatusEnum.Gathering, SquadStatusEnum.Voting] },
+      expiresAt: { $lte: now },
+    })
+      .select("_id status")
+      .lean();
+
+    if (expired.length === 0) return;
+
+    console.info(
+      `[squadWorker] fallback sweep found ${expired.length} expired squad(s); re-enqueuing.`,
+    );
+
+    for (const squad of expired) {
+      const id = squad._id.toString();
+      if (squad.status === SquadStatusEnum.Gathering) {
+        await squadResolutionQueue.add(
+          "squad-resolution",
+          { squadId: id },
+          { jobId: `sweep_squad_${id}` },
+        );
+      } else {
+        await votingResolutionQueue.add(
+          "voting-resolution",
+          { squadId: id },
+          { jobId: `sweep_vote_${id}` },
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[squadWorker] fallback sweep failed:", err);
+  }
+}
+
+/** Starts the periodic fallback sweep. Called from server.ts on bootstrap. */
+export function startFallbackSweep(): void {
+  if (sweepTimer) return;
+  sweepTimer = setInterval(sweepExpiredSquads, SWEEP_INTERVAL_MS);
+  sweepTimer.unref?.();
+  console.info("[squadWorker] fallback sweep started (every 15 min).");
+}
+
 /** Graceful shutdown for the worker — called from server.ts on SIGINT. */
 export async function closeSquadWorker(): Promise<void> {
+  if (sweepTimer) {
+    clearInterval(sweepTimer);
+    sweepTimer = null;
+  }
   await squadWorker.close();
   await squadResolutionQueue.close();
   await closeVotingWorker();

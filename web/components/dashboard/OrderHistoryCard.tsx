@@ -1,9 +1,14 @@
+"use client";
+
 import Image from "next/image";
 import { formatPKR } from "@/lib/format";
+import { useIsMounted } from "@/lib/useIsMounted";
 import type { Order } from "@/lib/types";
 import { OrderTimeline } from "./OrderTimeline";
 
 export function OrderHistoryCard({ order }: { order: Order }) {
+  const mounted = useIsMounted();
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex gap-4">
@@ -20,7 +25,9 @@ export function OrderHistoryCard({ order }: { order: Order }) {
             </span>
           </div>
           <p className="mt-1 text-sm font-bold text-slate-900">{formatPKR(order.totals.total)}</p>
-          <p className="text-xs text-slate-400">{new Date(order.createdAt).toLocaleDateString("en-PK")}</p>
+          <p className="text-xs text-slate-400">
+            {mounted ? new Date(order.createdAt).toLocaleDateString("en-PK") : ""}
+          </p>
         </div>
       </div>
 

@@ -14,9 +14,11 @@ import type {
 /**
  * Server Components (and any server-side code) talk to the Express API
  * directly over the loopback interface — fast, and never crosses the proxy.
- * The value is internal-only; it is not read by the browser.
+ * The value must be provided via BACKEND_INTERNAL_URL; we fail loudly if it is
+ * missing rather than silently falling back to localhost, which can mask
+ * misconfiguration in production.
  */
-const INTERNAL_API_URL = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
+const INTERNAL_API_URL = process.env.BACKEND_INTERNAL_URL;
 
 /**
  * Client Components must go through Next's own origin so the request stays
@@ -24,7 +26,13 @@ const INTERNAL_API_URL = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8
  * rewrites, which forward `/api/*` to the Express server.
  */
 function baseUrl(): string {
-  return typeof window === "undefined" ? INTERNAL_API_URL : "";
+  if (typeof window !== "undefined") return "";
+  if (!INTERNAL_API_URL) {
+    throw new Error(
+      "BACKEND_INTERNAL_URL is not set. Server-side API calls require this environment variable.",
+    );
+  }
+  return INTERNAL_API_URL;
 }
 
 interface ApiFetchOptions extends RequestInit {

@@ -18,7 +18,10 @@ import { computeOrderFinance, roundPKR } from "../utils/orderFinance.js";
 /* Redis connection                                                   */
 /* ------------------------------------------------------------------ */
 
-const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
+const redisUrl = process.env.REDIS_URL;
+if (!redisUrl) {
+  throw new Error("REDIS_URL is not set in the environment.");
+}
 
 /** Queue that fires when a squad's 2-hour voting window closes. */
 export const votingResolutionQueue = new Queue("voting-resolution", {
@@ -40,7 +43,7 @@ interface VotingResolutionJobData {
 }
 
 /* ------------------------------------------------------------------ */
-/* Finance helpers                                                    */
+/* Finance helpers                                                   */
 /* ------------------------------------------------------------------ */
 
 interface ResolvedFinance {
@@ -235,7 +238,7 @@ votingWorker.on("failed", (job, err) => {
   console.error(`[votingWorker] job ${job?.id} failed: ${err.message}`);
 });
 
-/** Graceful shutdown — called from server.ts. */
+/** Graceful shutdown — called from squadWorker.closeSquadWorker(). */
 export async function closeVotingWorker(): Promise<void> {
   await votingWorker.close();
   await votingResolutionQueue.close();

@@ -113,6 +113,12 @@ export const getAdminDisputes = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { status, page, limit } = req.query as GetAdminDisputesQuery;
 
+    // NoSQL injection guard: status must be a plain string if provided.
+    if (status !== undefined && typeof status !== "string") {
+      res.status(400).json({ error: "status must be a string." });
+      return;
+    }
+
     const pageNum = Math.max(1, Number(page) || 1);
     const limitNum = Math.min(100, Math.max(1, Number(limit) || 20));
     const skip = (pageNum - 1) * limitNum;

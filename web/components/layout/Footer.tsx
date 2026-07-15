@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useIsMounted } from "@/lib/useIsMounted";
 
 const marketplaceLinks = [
   { label: "Trending Tolis", href: "/squads" },
@@ -15,6 +18,8 @@ const supportLinks = [
 ];
 
 export function Footer() {
+  const mounted = useIsMounted();
+
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-4">
@@ -44,7 +49,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-slate-100 py-4 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} DiscountBazaar.PK. All rights reserved.
+        © {mounted ? new Date().getFullYear() : ""} DiscountBazaar.PK. All rights reserved.
       </div>
     </footer>
   );

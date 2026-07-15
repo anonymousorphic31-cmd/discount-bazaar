@@ -6,6 +6,7 @@
  * whose signatures match the contract the rest of the backend expects, so
  * swapping it later is a one-file change.
  */
+import crypto from "node:crypto";
 
 export interface SafepayCheckoutParams {
   amount: number; // PKR
@@ -50,26 +51,35 @@ export async function createAuthorization(
 }
 
 /**
- * Mock of Safepay webhook signature verification.
+ * Verifies a Safepay webhook signature.
  *
- * The real SDK computes an HMAC of the raw body using SAFEPAY_WEBHOOK_SECRET
- * and compares it to the `Safepay-Signature` header. Here we accept the
- * request if a secret is configured and a signature header is present, and
- * otherwise fall back to a dev-mode bypass so the webhook stays testable
- * locally.
+ * Computes the HMAC-SHA256 of the raw payload body using
+ * SAFEPAY_WEBHOOK_SECRET and compares it to the signature supplied in the
+ * `Safepay-Signature` header using a length-checked, constant-time comparison
+ * via crypto.timingSafeEqual. Returns false if the secret is unset, the
+ * signature is missing, or the computed digest does not match.
  */
 export function verifyWebhookSignature(
   signature: string | undefined,
   rawBody: string,
 ): boolean {
   const secret = process.env.SAFEPAY_WEBHOOK_SECRET;
-  if (secret && signature) {
-    // Real implementation: crypto.timingSafeEqual(hmac(rawBody, secret), signature)
-    return signature.length > 0 && rawBody.length > 0;
+  if (!secret || typeof signature !== "string" || signature.length === 0) {
+    return false;
   }
-  // Dev bypass — only safe because there is no real money moving yet.
-  console.warn("[safepay] webhook signature verification skipped (dev bypass).");
-  return true;
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody, "utf8")
+    .digest("hex");
+
+  const provided = Buffer.from(signature);
+  const computed = Buffer.from(expected);
+
+  if (provided.length !== computed.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(provided, computed);
 }
 
 /**

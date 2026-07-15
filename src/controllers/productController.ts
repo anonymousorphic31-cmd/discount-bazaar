@@ -4,6 +4,51 @@ import Product from "../models/Product.js";
 import { ProductApprovalStatus as ApprovalStatusEnum } from "../types/enums.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+interface PricingInput {
+  market_anchor_price?: number;
+  base_wholesale_cost?: number;
+  max_squad_discount_percent?: number;
+}
+
+/**
+ * Validates that pricing fields are finite, positive numbers before they reach
+ * Mongoose. Returns a specific error message for the first invalid field, or
+ * null when all three are acceptable. Prevents raw 500s on malformed input.
+ */
+function validatePricing(input: PricingInput): string | null {
+  const { market_anchor_price, base_wholesale_cost, max_squad_discount_percent } = input;
+
+  if (
+    market_anchor_price == null ||
+    typeof market_anchor_price !== "number" ||
+    !Number.isFinite(market_anchor_price) ||
+    market_anchor_price <= 0
+  ) {
+    return "market_anchor_price must be a positive number.";
+  }
+  if (
+    base_wholesale_cost == null ||
+    typeof base_wholesale_cost !== "number" ||
+    !Number.isFinite(base_wholesale_cost) ||
+    base_wholesale_cost <= 0
+  ) {
+    return "base_wholesale_cost must be a positive number.";
+  }
+  if (
+    max_squad_discount_percent == null ||
+    typeof max_squad_discount_percent !== "number" ||
+    !Number.isFinite(max_squad_discount_percent) ||
+    max_squad_discount_percent < 0 ||
+    max_squad_discount_percent > 100
+  ) {
+    return "max_squad_discount_percent must be a number between 0 and 100.";
+  }
+  if (base_wholesale_cost > market_anchor_price) {
+    return "base_wholesale_cost cannot exceed market_anchor_price.";
+  }
+  return null;
+}
+
 interface GetProductsQuery {
   category?: string;
   page?: string;
@@ -20,6 +65,16 @@ interface GetProductsQuery {
 export const getAllProducts = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { category, page, limit, sort, search } = req.query as GetProductsQuery;
+
+    // NoSQL injection guard: only plain strings may enter the Mongoose filter.
+    if (category !== undefined && typeof category !== "string") {
+      res.status(400).json({ error: "category must be a string." });
+      return;
+    }
+    if (search !== undefined && typeof search !== "string") {
+      res.status(400).json({ error: "search must be a string." });
+      return;
+    }
 
     const filter: Record<string, unknown> = { isActive: true };
     if (category) filter.category = category;
@@ -134,30 +189,17 @@ export const createProduct = asyncHandler(
       });
       return;
     }
-    if (
-      market_anchor_price == null ||
-      base_wholesale_cost == null ||
-      max_squad_discount_percent == null
-    ) {
-      res.status(400).json({
-        error: "market_anchor_price, base_wholesale_cost, and max_squad_discount_percent are required.",
-      });
+    const pricingError = validatePricing({
+      market_anchor_price,
+      base_wholesale_cost,
+      max_squad_discount_percent,
+    });
+    if (pricingError) {
+      res.status(400).json({ error: pricingError });
       return;
     }
     if (!Types.ObjectId.isValid(supplierId)) {
       res.status(400).json({ error: "Invalid supplierId." });
-      return;
-    }
-
-    // Validation: wholesale cost cannot exceed anchor price; discount in 0–100.
-    if (base_wholesale_cost > market_anchor_price) {
-      res
-        .status(400)
-        .json({ error: "base_wholesale_cost cannot exceed market_anchor_price." });
-      return;
-    }
-    if (max_squad_discount_percent < 0 || max_squad_discount_percent > 100) {
-      res.status(400).json({ error: "max_squad_discount_percent must be between 0 and 100." });
       return;
     }
 
@@ -175,7 +217,7 @@ export const createProduct = asyncHandler(
       pricing: {
         marketAnchorPrice: market_anchor_price,
         baseWholesaleCost: base_wholesale_cost,
-        maxSquadDiscount: max_squad_discount_percent / 100,
+        maxSquadDiscount: max_squad_discount_percent! / 100,
         currentRetailPrice: market_anchor_price,
       },
       dualCheckoutEnabled: dualCheckoutEnabled ?? true,
@@ -235,24 +277,13 @@ export const proposeProduct = asyncHandler(
       res.status(400).json({ error: "title, description, and category are required." });
       return;
     }
-    if (
-      market_anchor_price == null ||
-      base_wholesale_cost == null ||
-      max_squad_discount_percent == null
-    ) {
-      res.status(400).json({
-        error: "market_anchor_price, base_wholesale_cost, and max_squad_discount_percent are required.",
-      });
-      return;
-    }
-    if (base_wholesale_cost > market_anchor_price) {
-      res
-        .status(400)
-        .json({ error: "base_wholesale_cost cannot exceed market_anchor_price." });
-      return;
-    }
-    if (max_squad_discount_percent < 0 || max_squad_discount_percent > 100) {
-      res.status(400).json({ error: "max_squad_discount_percent must be between 0 and 100." });
+    const pricingError = validatePricing({
+      market_anchor_price,
+      base_wholesale_cost,
+      max_squad_discount_percent,
+    });
+    if (pricingError) {
+      res.status(400).json({ error: pricingError });
       return;
     }
 
@@ -270,7 +301,7 @@ export const proposeProduct = asyncHandler(
       pricing: {
         marketAnchorPrice: market_anchor_price,
         baseWholesaleCost: base_wholesale_cost,
-        maxSquadDiscount: max_squad_discount_percent / 100,
+        maxSquadDiscount: max_squad_discount_percent! / 100,
         currentRetailPrice: market_anchor_price,
       },
       dualCheckoutEnabled: dualCheckoutEnabled ?? true,

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { type Request, type Response } from "express";
 import mongoose, { Types } from "mongoose";
 import Order from "../models/Order.js";
@@ -45,21 +46,40 @@ const COURIER_STATUS_MAP: Record<string, LogisticsEnum> = {
 
 /**
  * POST /api/orders/webhook
- * Public. Receives logistics status updates from courier partners (Trax,
- * Leopards, etc.). Looks up the order by trackingNumber, updates its
- * logisticsStatus, and stamps deliveredAt when the package is delivered —
- * which implicitly unlocks the buyer's ability to open a dispute.
+ * Receives logistics status updates from courier partners (Trax, Leopards,
+ * etc.). Protected by a shared secret sent in the `x-courier-secret` header
+ * and compared against COURIER_WEBHOOK_SECRET. Looks up the order by
+ * trackingNumber, updates its logisticsStatus, and stamps deliveredAt when
+ * the package is delivered — which implicitly unlocks the buyer's ability to
+ * open a dispute.
  */
 export const courierWebhook = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const { tracking_number, status, courier } = req.body as CourierWebhookBody;
-
-    if (!tracking_number) {
-      res.status(400).json({ error: "tracking_number is required." });
+    // Shared-secret authentication — reject anything without a valid secret.
+    const courierSecret = process.env.COURIER_WEBHOOK_SECRET;
+    const providedSecret = req.headers["x-courier-secret"];
+    if (
+      !courierSecret ||
+      typeof providedSecret !== "string" ||
+      providedSecret.length !== courierSecret.length ||
+      !crypto.timingSafeEqual(Buffer.from(providedSecret), Buffer.from(courierSecret))
+    ) {
+      res.status(401).json({ error: "Unauthorized: missing or invalid courier secret." });
       return;
     }
-    if (!status) {
-      res.status(400).json({ error: "status is required." });
+
+    const { tracking_number, status, courier } = req.body as CourierWebhookBody;
+
+    if (!tracking_number || typeof tracking_number !== "string") {
+      res.status(400).json({ error: "tracking_number is required and must be a string." });
+      return;
+    }
+    if (!status || typeof status !== "string") {
+      res.status(400).json({ error: "status is required and must be a string." });
+      return;
+    }
+    if (courier !== undefined && typeof courier !== "string") {
+      res.status(400).json({ error: "courier must be a string if provided." });
       return;
     }
 
