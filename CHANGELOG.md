@@ -10,21 +10,26 @@
 - Finalized database schemas and UI/UX design language.
 
 **Backend Architecture & APIs**
-- Initialized Express server, MongoDB connection, and Mongoose schemas (Users, Products, Squads, Transactions, Orders, Disputes).
+- Initialized Express server, MongoDB connection, and Mongoose schemas.
 - Implemented Auth middleware and WhatsApp OTP controllers.
 - Built Hybrid Catalog (Products) controllers with strict TypeScript typing.
 - Implemented Safepay digital escrow mocks and Squad Engine webhooks.
-- Added BullMQ resolution workers (`votingResolutionWorker`) to finalize 2-hour voting windows and process Safepay captures/voids.
-- Created `orderController` featuring `computeOrderFinance` to enforce the State Bank of Pakistan zero-wallet invariant.
+- Added BullMQ resolution workers (`votingResolutionWorker`).
+- Created `orderController` featuring `computeOrderFinance`.
 - Implemented `disputeController` for buyer ticketing and QA.
-- Added `courierWebhook` to sync logistics updates directly from dropshipping partners.
-- Added `resolveDispute` for Admins to process Refunds (via Safepay mock) or Reject tickets, wrapped in a Mongoose transaction.
-- Re-engineered the backend escrow webhook to use idempotent, sequential writes to bypass local standalone MongoDB replica set limitations.
+- Added `courierWebhook` to sync logistics updates.
+- Added `resolveDispute` for Admins to process Refunds/Rejects.
+- Re-engineered the escrow webhook to bypass local standalone MongoDB limitations.
+- Added `ProductApprovalStatus` enum and supplier proposal flow endpoints.
+- Added courier tracking update endpoint and Admin supplier-picker route.
 
 **Frontend (Next.js)**
 - Initialized Next.js frontend connected to the live Node.js backend.
-- Built Hybrid Homepage, `/products` catalog, and dynamic `/products/[id]` pages fetching live data.
-- Implemented real WhatsApp OTP login modal integrated with backend auth routes.
+- Built Hybrid Homepage, `/products` catalog, and dynamic `/products/[id]` pages.
+- Implemented real WhatsApp OTP login modal.
 - Created database seed script for active Tolis (Squads) and products.
-- Built Dual-Checkout Product Detail Page (PDP) featuring dynamic pricing and Safepay integration.
-- Built protected Buyer Dashboard (`/dashboard`) with "Active Pledges" (Voting UI) and "Order History" (Logistics Timeline).
+- Built Dual-Checkout Product Detail Page (PDP).
+- Built protected Buyer Dashboard (`/dashboard`).
+- Built Client-Side `RoleGuard` component.
+- Built Supplier SaaS Dashboard (`/supplier`) with Propose Deal form and Order Manifests.
+- Built Admin Command Center (`/admin`) with Proposal Queue, Direct Listing, and Conflict Resolution.
