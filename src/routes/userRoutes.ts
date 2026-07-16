@@ -1,14 +1,20 @@
 import { Router } from "express";
 import {
+  getShippingAddress,
   getSupplierApplications,
   getSuppliers,
   messageSupplier,
   resolveSupplierApplication,
   submitSupplierVerification,
+  updateShippingAddress,
 } from "../controllers/userController.js";
 import { requireAuth, requireRole } from "../middlewares/authMiddleware.js";
 
 const router = Router();
+
+// Buyer — save/retrieve shipping address for checkout delivery fee calculation
+router.put("/profile/address", requireAuth, updateShippingAddress);
+router.get("/profile/address", requireAuth, getShippingAddress);
 
 // Admin-only — pick a supplier to attribute a direct listing to.
 router.get("/suppliers", requireAuth, requireRole("Admin"), getSuppliers);

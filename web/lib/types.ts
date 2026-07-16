@@ -162,10 +162,21 @@ export interface Paginated<T> {
 
 export type UserRole = "Buyer" | "Supplier" | "Admin";
 
+export interface ShippingAddress {
+  fullName: string;
+  phoneNumber: string;
+  province: string;
+  city: string;
+  area: string;
+  streetAddress: string;
+  landmark?: string | null;
+}
+
 export interface AuthUser {
   id: string;
   phoneNumber: string;
   name: string;
   role: UserRole;
   verificationStatus?: "Unverified" | "Pending" | "Approved" | "Rejected";
+  shippingAddress?: ShippingAddress | null;
 }

@@ -225,6 +225,39 @@ export async function fetchMyOrders(token: string): Promise<Order[]> {
   return result.data;
 }
 
+export async function saveShippingAddress(
+  address: {
+    fullName: string;
+    phoneNumber: string;
+    province: string;
+    city: string;
+    area: string;
+    streetAddress: string;
+    landmark?: string;
+  },
+  token: string,
+): Promise<import("./types").ShippingAddress> {
+  const result = await apiFetch<{ data: import("./types").ShippingAddress }>(
+    "/api/users/profile/address",
+    {
+      method: "PUT",
+      token,
+      body: JSON.stringify(address),
+    },
+  );
+  return result.data;
+}
+
+export async function getShippingAddress(
+  token: string,
+): Promise<import("./types").ShippingAddress | null> {
+  const result = await apiFetch<{ data: import("./types").ShippingAddress | null }>(
+    "/api/users/profile/address",
+    { token },
+  );
+  return result.data;
+}
+
 export async function sendWhatsappOtp(phoneNumber: string): Promise<{ message: string; devOtp?: string }> {
   return apiFetch("/api/auth/whatsapp/send", {
     method: "POST",

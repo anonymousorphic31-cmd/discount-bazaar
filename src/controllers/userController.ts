@@ -100,6 +100,92 @@ export const resolveSupplierApplication = asyncHandler(
   },
 );
 
+interface ShippingAddressBody {
+  fullName?: string;
+  phoneNumber?: string;
+  province?: string;
+  city?: string;
+  area?: string;
+  streetAddress?: string;
+  landmark?: string;
+}
+
+/**
+ * PUT /api/users/profile/address
+ * Protected (any authenticated buyer). Saves or updates the buyer's
+ * shipping address so the checkout flow can compute delivery fees and
+ * display the order summary before initiating Safepay escrow.
+ */
+export const updateShippingAddress = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+
+    const { fullName, phoneNumber, province, city, area, streetAddress, landmark } =
+      req.body as ShippingAddressBody;
+
+    if (!fullName?.trim() || !phoneNumber?.trim() || !province?.trim() || !city?.trim() || !area?.trim() || !streetAddress?.trim()) {
+      res.status(400).json({ error: "fullName, phoneNumber, province, city, area, and streetAddress are required." });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    user.shippingAddress = {
+      fullName: fullName.trim(),
+      phoneNumber: phoneNumber.trim(),
+      province: province.trim(),
+      city: city.trim(),
+      area: area.trim(),
+      streetAddress: streetAddress.trim(),
+      landmark: landmark?.trim() || undefined,
+    };
+    await user.save();
+
+    res.status(200).json({
+      message: "Shipping address saved.",
+      data: {
+        fullName: user.shippingAddress.fullName,
+        phoneNumber: user.shippingAddress.phoneNumber,
+        province: user.shippingAddress.province,
+        city: user.shippingAddress.city,
+        area: user.shippingAddress.area,
+        streetAddress: user.shippingAddress.streetAddress,
+        landmark: user.shippingAddress.landmark ?? null,
+      },
+    });
+  },
+);
+
+/**
+ * GET /api/users/profile/address
+ * Protected. Returns the saved shipping address for the authenticated buyer.
+ */
+export const getShippingAddress = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+
+    const user = await User.findById(userId).select("shippingAddress").lean();
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    res.status(200).json({ data: user.shippingAddress ?? null });
+  },
+);
+
 export const messageSupplier = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;

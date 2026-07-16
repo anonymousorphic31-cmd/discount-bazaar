@@ -31,6 +31,33 @@ const SupplierDetailsSchema = new Schema<ISupplierDetails>(
 );
 
 /* ------------------------------------------------------------------ */
+/* Embedded shipping address                                          */
+/* ------------------------------------------------------------------ */
+
+export interface IShippingAddress {
+  fullName: string;
+  phoneNumber: string;
+  province: string;
+  city: string;
+  area: string;
+  streetAddress: string;
+  landmark?: string;
+}
+
+const ShippingAddressSchema = new Schema<IShippingAddress>(
+  {
+    fullName: { type: String, required: true, trim: true },
+    phoneNumber: { type: String, required: true, trim: true },
+    province: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
+    area: { type: String, required: true, trim: true },
+    streetAddress: { type: String, required: true, trim: true },
+    landmark: { type: String, trim: true },
+  },
+  { _id: false, timestamps: false },
+);
+
+/* ------------------------------------------------------------------ */
 /* User                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -51,6 +78,7 @@ export interface IUser extends Document {
   whatsappOtp?: string;
   otpExpiresAt?: Date;
   supplierDetails?: ISupplierDetails;
+  shippingAddress?: IShippingAddress;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +124,7 @@ const UserSchema = new Schema<IUser>(
         return this.role === UserRoleEnum.Supplier;
       },
     },
+    shippingAddress: { type: ShippingAddressSchema, default: null },
   },
   { timestamps: true },
 );
