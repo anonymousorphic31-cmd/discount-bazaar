@@ -36,7 +36,7 @@ export function Navbar() {
           {/* Logo — left, with platform icon */}
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <Image
-              src="/images/DB_logo.png"
+              src="/public/images/DB_logo.png"
               alt="DiscountBazaar"
               width={36}
               height={36}
