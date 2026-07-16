@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { Squad } from "@/lib/types";
-import { formatPKR, hoursUntil, squadCurrentPrice, squadDiscountPercent } from "@/lib/format";
+import { formatPKR, hoursUntil, squadCurrentPrice, squadDiscountPercent, squadMaxDiscountPercent } from "@/lib/format";
 
 export function SquadCard({ squad }: { squad: Squad }) {
   const { productId: product, currentMembers, targetMembers, expiresAt } = squad;
@@ -9,12 +9,13 @@ export function SquadCard({ squad }: { squad: Squad }) {
   const maxDiscount = product.pricing.maxSquadDiscount;
   const currentPrice = squadCurrentPrice(anchorPrice, maxDiscount, currentMembers, targetMembers);
   const discountPct = squadDiscountPercent(maxDiscount, currentMembers, targetMembers);
+  const maxDiscountPct = squadMaxDiscountPercent(maxDiscount);
   const progress = Math.min(100, Math.round((currentMembers / targetMembers) * 100));
   const hoursLeft = hoursUntil(expiresAt);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-      <div className="relative h-40 w-full bg-slate-100">
+    <div className="flex w-64 shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm sm:w-72">
+      <Link href={`/products/${product._id}`} className="relative block aspect-[4/3] w-full overflow-hidden bg-slate-100">
         {product.images[0] ? (
           <img
             src={product.images[0]}
@@ -31,7 +32,7 @@ export function SquadCard({ squad }: { squad: Squad }) {
         <span className="absolute right-2 top-2 rounded-full bg-mint px-2 py-0.5 text-[11px] font-bold text-oceanic-dark shadow-sm">
           {discountPct}% OFF
         </span>
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="line-clamp-2 text-sm font-medium text-slate-800">{product.title}</h3>
@@ -46,7 +47,7 @@ export function SquadCard({ squad }: { squad: Squad }) {
             <div className="h-full rounded-full bg-mint" style={{ width: `${progress}%` }} />
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            {currentMembers}/{targetMembers} Joined · {discountPct}% discount unlocked
+            {currentMembers}/{targetMembers} Joined · {discountPct}% / {maxDiscountPct}% unlocked
           </p>
         </div>
 

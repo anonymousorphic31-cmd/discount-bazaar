@@ -140,11 +140,12 @@ export async function initiateEscrowCheckout(
   productId: string,
   squadId: string | undefined,
   token: string,
+  quantity: number,
 ): Promise<EscrowCheckoutResult> {
   const result = await apiFetch<{ data: EscrowCheckoutResult }>("/api/escrow/checkout", {
     method: "POST",
     token,
-    body: JSON.stringify({ productId, squadId }),
+    body: JSON.stringify({ productId, squadId, quantity }),
   });
   return result.data;
 }

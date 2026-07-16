@@ -20,6 +20,7 @@ import { squadResolutionQueue } from "../workers/squadWorker.js";
 interface InitiateCheckoutBody {
   productId?: string;
   squadId?: string;
+  quantity?: number;
 }
 
 /**
@@ -30,8 +31,9 @@ interface InitiateCheckoutBody {
  */
 export const initiateCheckout = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const { productId, squadId } = req.body as InitiateCheckoutBody;
+    const { productId, squadId, quantity: rawQty } = req.body as InitiateCheckoutBody;
     const buyerId = req.user?.userId;
+    const quantity = Math.max(1, Math.min(99, Math.floor(Number(rawQty) || 1)));
 
     if (!buyerId) {
       res.status(401).json({ error: "Authentication required." });
@@ -67,10 +69,15 @@ export const initiateCheckout = asyncHandler(
         res.status(409).json({ error: "Squad is already full." });
         return;
       }
+      if (squad.currentMembers + quantity > squad.targetMembers) {
+        res.status(409).json({ error: `This squad only has ${squad.targetMembers - squad.currentMembers} slot(s) left, but you requested ${quantity}.` });
+        return;
+      }
     }
 
     const depositPercentage = product.deposit_percentage ?? 10;
-    const holdAmount = Math.round(product.pricing.marketAnchorPrice * (depositPercentage / 100) * 100) / 100;
+    const unitDeposit = Math.round(product.pricing.marketAnchorPrice * (depositPercentage / 100) * 100) / 100;
+    const holdAmount = Math.round(unitDeposit * quantity * 100) / 100;
     const reference = `p_${productId}_b_${buyerId}_${Date.now().toString(36)}`;
 
     const { trackerId, checkoutUrl } = await createAuthorization({
@@ -87,6 +94,8 @@ export const initiateCheckout = asyncHandler(
         trackerId,
         checkoutUrl,
         holdAmount,
+        unitDeposit,
+        quantity,
         productId,
         squadId: squadId ?? null,
       },
@@ -107,6 +116,7 @@ interface SafepayWebhookPayload {
       productId?: string;
       squadId?: string;
       buyerId?: string;
+      quantity?: number;
     };
   };
 }
@@ -146,6 +156,7 @@ export const safepayWebhook = asyncHandler(
     }
 
     const { productId, squadId, buyerId } = metadata;
+    const quantity = Math.max(1, Math.min(99, Math.floor(Number(metadata.quantity) || 1)));
     if (!productId || !buyerId) {
       res.status(400).json({ error: "Webhook metadata missing productId/buyerId." });
       return;
@@ -186,12 +197,14 @@ export const safepayWebhook = asyncHandler(
           if (!squad) {
             throw new Error(`Webhook referenced missing squad ${squadId}`);
           }
-          squad.members.push({
-            userId: new Types.ObjectId(buyerId),
-            joinedAt: new Date(),
-            depositTransactionId: created._id,
-          });
-          squad.currentMembers += 1;
+          for (let i = 0; i < quantity; i++) {
+            squad.members.push({
+              userId: new Types.ObjectId(buyerId),
+              joinedAt: new Date(),
+              depositTransactionId: created._id,
+            });
+          }
+          squad.currentMembers += quantity;
           if (squad.currentMembers >= squad.targetMembers) {
             squad.status = SquadStatusEnum.Captured;
             squad.capturedAt = new Date();
@@ -202,14 +215,12 @@ export const safepayWebhook = asyncHandler(
           const newSquad = await Squad.create({
             productId: new Types.ObjectId(productId),
             targetMembers: 30,
-            currentMembers: 1,
-            members: [
-              {
-                userId: new Types.ObjectId(buyerId),
-                joinedAt: new Date(),
-                depositTransactionId: created._id,
-              },
-            ],
+            currentMembers: quantity,
+            members: Array.from({ length: quantity }, () => ({
+              userId: new Types.ObjectId(buyerId),
+              joinedAt: new Date(),
+              depositTransactionId: created._id,
+            })),
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             status: SquadStatusEnum.Gathering,
           });
@@ -244,6 +255,7 @@ interface SimulateAuthBody {
   productId?: string;
   squadId?: string | null;
   buyerId?: string;
+  quantity?: number;
 }
 
 /**
@@ -256,6 +268,7 @@ interface SimulateAuthBody {
 export const simulateAuthorization = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { trackerId, amount, productId, squadId, buyerId } = req.body as SimulateAuthBody;
+    const quantity = Math.max(1, Math.min(99, Math.floor(Number((req.body as SimulateAuthBody).quantity) || 1)));
 
     if (!trackerId || !productId || !buyerId) {
       res.status(400).json({ error: "trackerId, productId, and buyerId are required." });
@@ -268,7 +281,7 @@ export const simulateAuthorization = asyncHandler(
       data: {
         tracker_id: trackerId,
         amount: amount ?? 0,
-        metadata: { productId, squadId: squadId ?? undefined, buyerId },
+        metadata: { productId, squadId: squadId ?? undefined, buyerId, quantity },
       },
     };
 
@@ -296,12 +309,14 @@ export const simulateAuthorization = asyncHandler(
           if (!squad) {
             throw new Error(`Simulate referenced missing squad ${squadId}`);
           }
-          squad.members.push({
-            userId: new Types.ObjectId(buyerId),
-            joinedAt: new Date(),
-            depositTransactionId: created._id,
-          });
-          squad.currentMembers += 1;
+          for (let i = 0; i < quantity; i++) {
+            squad.members.push({
+              userId: new Types.ObjectId(buyerId),
+              joinedAt: new Date(),
+              depositTransactionId: created._id,
+            });
+          }
+          squad.currentMembers += quantity;
           if (squad.currentMembers >= squad.targetMembers) {
             squad.status = SquadStatusEnum.Captured;
             squad.capturedAt = new Date();
@@ -312,14 +327,12 @@ export const simulateAuthorization = asyncHandler(
           const newSquad = await Squad.create({
             productId: new Types.ObjectId(productId),
             targetMembers: 30,
-            currentMembers: 1,
-            members: [
-              {
-                userId: new Types.ObjectId(buyerId),
-                joinedAt: new Date(),
-                depositTransactionId: created._id,
-              },
-            ],
+            currentMembers: quantity,
+            members: Array.from({ length: quantity }, () => ({
+              userId: new Types.ObjectId(buyerId),
+              joinedAt: new Date(),
+              depositTransactionId: created._id,
+            })),
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             status: SquadStatusEnum.Gathering,
           });

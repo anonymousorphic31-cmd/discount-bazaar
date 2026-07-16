@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { voteOnSquad } from "@/lib/api";
-import { formatPKR, squadCurrentPrice, squadDiscountPercent } from "@/lib/format";
+import { formatPKR, squadCurrentPrice, squadDiscountPercent, squadMaxDiscountPercent } from "@/lib/format";
 import type { Squad } from "@/lib/types";
 
 export function SquadPledgeCard({ squad, onVoted }: { squad: Squad; onVoted: (squad: Squad) => void }) {
@@ -60,7 +60,7 @@ export function SquadPledgeCard({ squad, onVoted }: { squad: Squad; onVoted: (sq
             <div className="h-full rounded-full bg-mint" style={{ width: `${progress}%` }} />
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            {currentMembers}/{targetMembers} joined · {discountPct}% discount unlocked · Status: {squad.status}
+            {currentMembers}/{targetMembers} joined · {discountPct}% / {squadMaxDiscountPercent(maxDiscount)}% unlocked · Status: {squad.status}
           </p>
         </div>
       </div>

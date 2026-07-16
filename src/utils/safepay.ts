@@ -106,19 +106,16 @@ export async function createAuthorization(
     }
     console.info(`[safepay] payment token received: ${trackerToken}`);
 
-    // Step 2: Create auth token for checkout URL
-    const authToken = await client.authorization.create();
+    // Step 2: Create auth token (required by SDK flow but the render
+    // endpoint uses the tracker directly)
+    await client.authorization.create();
     console.info(`[safepay] auth token received`);
 
-    // Step 3: Build checkout URL
-    const checkoutUrl = client.checkout.create({
-      token: authToken,
-      orderId: params.reference,
-      redirectUrl: getRedirectUrl(),
-      cancelUrl: getCancelUrl(),
-      source: "custom",
-      webhooks: true,
-    });
+    // Step 3: Build the hosted checkout URL using the render endpoint
+    // with the tracker (payment token) so the buyer sees the interactive
+    // card-details form in the Safepay sandbox.
+    const checkoutBase = getCheckoutBase();
+    const checkoutUrl = `${checkoutBase}/render?tracker=${encodeURIComponent(trackerToken)}&order_id=${encodeURIComponent(params.reference)}&redirect_url=${encodeURIComponent(getRedirectUrl())}&cancel_url=${encodeURIComponent(getCancelUrl())}&env=sandbox`;
 
     console.info(
       `[safepay] createAuthorization: tracker=${trackerToken} amount=${params.amount} intent=${params.intent}`,

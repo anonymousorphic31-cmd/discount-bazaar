@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { useCart } from "@/lib/CartContext";
-import { initiateEscrowCheckout, simulateEscrowAuthorization } from "@/lib/api";
-import { formatPKR, squadCurrentPrice, squadDiscountPercent } from "@/lib/format";
+import { initiateEscrowCheckout } from "@/lib/api";
+import { formatPKR, squadCurrentPrice, squadDiscountPercent, squadMaxDiscountPercent } from "@/lib/format";
 import type { Product, Squad } from "@/lib/types";
 
 export function DualCheckout({ product, activeSquad }: { product: Product; activeSquad: Squad | null }) {
@@ -26,12 +26,14 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
   const unitSquadPrice = squadCurrentPrice(marketAnchorPrice, maxSquadDiscount, currentMembers, targetMembers);
   const totalSquadPrice = unitSquadPrice * quantity;
   const discountPct = squadDiscountPercent(maxSquadDiscount, currentMembers, targetMembers);
+  const maxDiscountPct = squadMaxDiscountPercent(maxSquadDiscount);
 
   const depositPct = product.deposit_percentage ?? 10;
   const depositPerUnit = Math.round(marketAnchorPrice * (depositPct / 100));
   const totalDeposit = depositPerUnit * quantity;
   const remaining = Math.max(0, Math.round(totalSquadPrice - totalDeposit));
   const progress = Math.min(100, Math.round((currentMembers / targetMembers) * 100));
+  const isFull = currentMembers >= targetMembers;
 
   function adjustQty(delta: number) {
     setQuantity((q) => Math.max(1, Math.min(99, q + delta)));
@@ -46,15 +48,16 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
     setError(null);
     setJoining(true);
     try {
-      const checkout = await initiateEscrowCheckout(product._id, activeSquad?._id, token);
-      await simulateEscrowAuthorization({
-        trackerId: checkout.trackerId,
-        amount: checkout.holdAmount,
-        productId: checkout.productId,
-        squadId: checkout.squadId,
-        buyerId: user.id,
-        token,
-      });
+      const checkout = await initiateEscrowCheckout(product._id, activeSquad?._id, token, quantity);
+
+      // Redirect to Safepay hosted checkout so the buyer can enter
+      // sandbox card details in the interactive payment form.
+      if (checkout.checkoutUrl) {
+        window.location.href = checkout.checkoutUrl;
+        return;
+      }
+
+      // Fallback: no checkout URL — go to dashboard
       router.push("/dashboard?success=true");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start the Squad checkout.");
@@ -131,6 +134,11 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
               <span className="rounded-full bg-mint px-2 py-0.5 text-[10px] font-bold text-oceanic-dark">
                 {discountPct}% OFF
               </span>
+              {isFull && (
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                  LOCKED
+                </span>
+              )}
             </div>
             <p className="mt-1 text-lg font-bold text-oceanic-dark sm:text-xl">
               {formatPKR(totalSquadPrice)}
@@ -146,7 +154,9 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
                 <div className="h-full rounded-full bg-mint" style={{ width: `${progress}%` }} />
               </div>
               <p className="mt-1 text-xs text-oceanic-dark/80">
-                {activeSquad ? `${currentMembers}/${targetMembers} joined` : "Be the first to start this Squad"}
+                {activeSquad
+                  ? `${currentMembers}/${targetMembers} joined · ${discountPct}% / ${maxDiscountPct}% unlocked`
+                  : "Be the first to start this Squad"}
               </p>
             </div>
 
@@ -166,7 +176,7 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
             disabled={isJoining}
             className="mt-4 w-full rounded-full bg-oceanic px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-oceanic-dark disabled:opacity-60"
           >
-            {isJoining ? "Starting your hold..." : "Join this Squad"}
+            {isJoining ? "Redirecting to Safepay..." : "Join this Squad"}
           </button>
         </div>
       </div>

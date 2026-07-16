@@ -36,11 +36,11 @@ export function Navbar() {
           {/* Logo — left, with platform icon */}
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <Image
-              src="/images/image.png"
+              src="/images/DB_logo.png"
               alt="DiscountBazaar"
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-lg object-cover"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-lg object-contain"
               priority
             />
             <span className="font-heading text-base font-bold text-slate-900 sm:text-lg">
@@ -48,8 +48,8 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Nav links — centered, desktop only */}
-          <nav className="mx-auto hidden items-center gap-1 md:flex">
+          {/* Nav links — shifted right of center, desktop only */}
+          <nav className="ml-auto mr-auto hidden items-center gap-1 pl-12 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.label}

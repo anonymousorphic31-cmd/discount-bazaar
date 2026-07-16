@@ -50,11 +50,11 @@ export function PortalShell({ title, subtitle, tabs, activeTab, onTabChange, chi
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/images/image.png"
+              src="/images/DB_logo.png"
               alt="DiscountBazaar"
               width={28}
               height={28}
-              className="h-7 w-7 rounded-lg object-cover"
+              className="h-7 w-7 rounded-lg object-contain"
             />
             <span className="font-heading text-sm font-bold tracking-tight">
               DiscountBazaar<span className="text-mint">.PK</span>
