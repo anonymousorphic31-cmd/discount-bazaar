@@ -22,10 +22,14 @@ interface B2BLoginBody {
 
 interface SupplierRegisterBody {
   businessName?: string;
-  dropshipNetworkId?: string;
   contactNumber?: string;
-  cnicNtn?: string;
   email?: string;
+  password?: string;
+}
+
+interface SupplierVerifyOtpBody {
+  contactNumber?: string;
+  otp?: string;
 }
 
 /**
@@ -168,13 +172,23 @@ export const loginB2B = asyncHandler(async (req: Request, res: Response): Promis
   });
 });
 
+/**
+ * POST /api/auth/supplier/register
+ * Step 1: Creates a supplier account with role 'Supplier' and
+ * verificationStatus 'Unverified'. Stores the password hash and sends
+ * an OTP to the contact number for verification.
+ *
+ * The account is NOT usable until the OTP is verified via
+ * POST /api/auth/supplier/verify-otp.
+ */
 export const registerSupplierApplication = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const { businessName, dropshipNetworkId, contactNumber, cnicNtn, email } = req.body as SupplierRegisterBody;
-  if (!businessName || !dropshipNetworkId || !contactNumber || !cnicNtn) {
-    res.status(400).json({ error: "businessName, dropshipNetworkId, contactNumber, and cnicNtn are required." });
+  const { businessName, contactNumber, email, password } = req.body as SupplierRegisterBody;
+
+  if (!businessName || !contactNumber || !email || !password) {
+    res.status(400).json({ error: "businessName, contactNumber, email, and password are required." });
     return;
   }
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     res.status(400).json({ error: "email must be a valid email address." });
     return;
   }
@@ -182,28 +196,39 @@ export const registerSupplierApplication = asyncHandler(async (req: Request, res
     res.status(400).json({ error: "contactNumber must be a valid phone number." });
     return;
   }
-
-  const exists = await User.findOne({ $or: [{ phoneNumber: contactNumber }, { dropshipNetworkId }] }).lean();
-  if (exists) {
-    res.status(409).json({ error: "A supplier application already exists for this contact or network ID." });
+  if (password.length < 6) {
+    res.status(400).json({ error: "password must be at least 6 characters." });
     return;
   }
 
-  const passwordSeed = `${businessName.trim()}-${contactNumber.trim()}-${Date.now()}`;
-  const { salt, hash } = await hashPassword(passwordSeed);
+  // Check for existing supplier with same phone or email
+  const exists = await User.findOne({
+    $or: [{ phoneNumber: contactNumber }, { email: email.toLowerCase() }],
+  }).lean();
+  if (exists) {
+    res.status(409).json({ error: "An account already exists for this contact number or email." });
+    return;
+  }
 
+  // Hash the password
+  const { salt, hash } = await hashPassword(password);
+
+  // Generate OTP for verification
+  const { code, expiresAt } = generateOtp();
+
+  // Create the supplier account with Unverified status
   const user = await User.create({
     phoneNumber: contactNumber.trim(),
-    email: email?.trim() || undefined,
+    email: email.trim().toLowerCase(),
     role: UserRoleEnum.Supplier,
     name: businessName.trim(),
     businessName: businessName.trim(),
-    dropshipNetworkId: dropshipNetworkId.trim(),
     contactNumber: contactNumber.trim(),
-    cnicNtn: cnicNtn.trim(),
     verificationStatus: "Pending",
     passwordHash: hash,
     passwordSalt: salt,
+    whatsappOtp: code,
+    otpExpiresAt: expiresAt,
     supplierDetails: {
       companyName: businessName.trim(),
       contactPerson: businessName.trim(),
@@ -213,11 +238,62 @@ export const registerSupplierApplication = asyncHandler(async (req: Request, res
     },
   });
 
+  // Mock SMS gateway — log the OTP
+  console.info(`[supplier otp] -> ${contactNumber}: ${code} (expires ${expiresAt.toISOString()})`);
+
+  // In development, return the code so the frontend can display it for testing.
+  const isDev = process.env.NODE_ENV !== "production";
   res.status(201).json({
-    message: "Supplier application submitted. An admin will review it shortly.",
+    message: "Account created. Verify the OTP sent to your contact number to complete registration.",
     data: {
       userId: user._id.toString(),
-      verificationStatus: user.verificationStatus,
+      contactNumber: user.phoneNumber,
+    },
+    ...(isDev ? { devOtp: code } : {}),
+  });
+});
+
+/**
+ * POST /api/auth/supplier/verify-otp
+ * Step 2: Verifies the OTP sent during supplier registration.
+ * Once verified, the account is fully registered and the user can log in.
+ * The verificationStatus stays 'Pending' (meaning pending business/KYC
+ * verification by admin), but the account is now usable for login.
+ */
+export const verifySupplierOtp = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { contactNumber, otp } = req.body as SupplierVerifyOtpBody;
+
+  if (!contactNumber || !otp) {
+    res.status(400).json({ error: "contactNumber and otp are required." });
+    return;
+  }
+
+  const user = await User.findOne({ phoneNumber: contactNumber, role: UserRoleEnum.Supplier }).select(
+    "+whatsappOtp +otpExpiresAt",
+  );
+  if (!user || !user.whatsappOtp || !user.otpExpiresAt) {
+    res.status(400).json({ error: "No active OTP for this contact number. Request a new one." });
+    return;
+  }
+  if (user.otpExpiresAt.getTime() < Date.now()) {
+    res.status(400).json({ error: "OTP expired. Request a new one." });
+    return;
+  }
+  if (user.whatsappOtp !== otp) {
+    res.status(400).json({ error: "Invalid OTP." });
+    return;
+  }
+
+  // Clear OTP fields
+  user.whatsappOtp = undefined;
+  user.otpExpiresAt = undefined;
+  await user.save();
+
+  res.status(200).json({
+    message: "OTP verified successfully. Your supplier account is now registered. Please log in to continue.",
+    data: {
+      userId: user._id.toString(),
+      verified: true,
     },
   });
 });

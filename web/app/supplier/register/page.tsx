@@ -61,9 +61,9 @@ export default function SupplierRegisterPage() {
           <div className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/30 sm:p-6 lg:p-8">
             <div className="mb-6">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-oceanic">Supplier Registration</p>
-              <h2 className="mt-3 font-heading text-3xl font-bold text-slate-900">Complete the form below to apply for your supplier SaaS account.</h2>
+              <h2 className="mt-3 font-heading text-3xl font-bold text-slate-900">Create your supplier account</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Your application is reviewed before dashboard access is granted.
+                Start with basic credentials — you&apos;ll complete business verification after logging in.
               </p>
             </div>
 

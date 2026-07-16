@@ -258,15 +258,43 @@ export async function loginB2B(
 
 export async function registerSupplierApplication(payload: {
   businessName: string;
-  dropshipNetworkId: string;
   contactNumber: string;
-  cnicNtn: string;
-  email?: string;
-}): Promise<{ message: string; data: { userId: string; verificationStatus: string } }> {
+  email: string;
+  password: string;
+}): Promise<{ message: string; data: { userId: string; contactNumber: string }; devOtp?: string }> {
   return apiFetch("/api/auth/supplier/register", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function verifySupplierOtp(
+  contactNumber: string,
+  otp: string,
+): Promise<{ message: string; data: { userId: string; verified: boolean } }> {
+  return apiFetch("/api/auth/supplier/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ contactNumber, otp }),
+  });
+}
+
+export async function submitSupplierVerification(
+  payload: {
+    dropshipNetworkId: string;
+    cnicNtn: string;
+    businessProofUrls: string[];
+  },
+  token: string,
+): Promise<{ message: string; data: { verificationStatus: string } }> {
+  const result = await apiFetch<{ message: string; data: { verificationStatus: string } }>(
+    "/api/users/supplier/verify",
+    {
+      method: "PUT",
+      token,
+      body: JSON.stringify(payload),
+    },
+  );
+  return result;
 }
 
 /* ------------------------------------------------------------------ */

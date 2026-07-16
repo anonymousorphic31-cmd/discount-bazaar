@@ -43,8 +43,9 @@ export interface IUser extends Document {
   dropshipNetworkId?: string;
   contactNumber?: string;
   cnicNtn?: string;
-  verificationStatus: "Pending" | "Approved" | "Rejected";
+  verificationStatus: "Unverified" | "Pending" | "Approved" | "Rejected";
   reviewNote?: string;
+  businessProofUrls?: string[];
   passwordHash?: string;
   passwordSalt?: string;
   whatsappOtp?: string;
@@ -78,10 +79,11 @@ const UserSchema = new Schema<IUser>(
     cnicNtn: { type: String, trim: true },
     verificationStatus: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
+      enum: ["Unverified", "Pending", "Approved", "Rejected"],
       default: "Approved",
       index: true,
     },
+    businessProofUrls: { type: [String], default: [] },
     reviewNote: { type: String, trim: true },
     passwordHash: { type: String, select: false },
     passwordSalt: { type: String, select: false },

@@ -118,7 +118,8 @@ interface SafepayWebhookPayload {
  */
 export const safepayWebhook = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const signature = req.headers["safepay-signature"] as string | undefined;
+    const signature = (req.headers["x-sfpy-signature"] as string | undefined) ??
+      (req.headers["safepay-signature"] as string | undefined);
     const rawBody = (req.rawBody as string | undefined) ?? JSON.stringify(req.body ?? {});
 
     if (!verifyWebhookSignature(signature, rawBody)) {

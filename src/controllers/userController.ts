@@ -130,3 +130,58 @@ export const messageSupplier = asyncHandler(
     });
   },
 );
+
+interface SupplierVerifyBody {
+  dropshipNetworkId?: string;
+  cnicNtn?: string;
+  businessProofUrls?: string[];
+}
+
+/**
+ * PUT /api/users/supplier/verify
+ * Supplier-only (self-service). Accepts KYC details (dropship network,
+ * CNIC/NTN, business proof URLs) and flips the authenticated supplier's
+ * verificationStatus from 'Unverified' to 'Pending'.
+ */
+export const submitSupplierVerification = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+
+    const { dropshipNetworkId, cnicNtn, businessProofUrls } = req.body as SupplierVerifyBody;
+
+    if (!dropshipNetworkId?.trim() || !cnicNtn?.trim()) {
+      res.status(400).json({ error: "dropshipNetworkId and cnicNtn are required." });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user || user.role !== UserRoleEnum.Supplier) {
+      res.status(403).json({ error: "Only supplier accounts can submit business verification." });
+      return;
+    }
+    if (user.verificationStatus !== "Unverified") {
+      res.status(409).json({
+        error: `Business verification already submitted. Current status: ${user.verificationStatus}.`,
+      });
+      return;
+    }
+
+    user.dropshipNetworkId = dropshipNetworkId.trim();
+    user.cnicNtn = cnicNtn.trim();
+    user.businessProofUrls = (businessProofUrls ?? []).slice(0, 4);
+    user.verificationStatus = "Pending";
+    await user.save();
+
+    res.status(200).json({
+      message: "Business verification submitted. Your documentation is under review.",
+      data: {
+        userId: user._id.toString(),
+        verificationStatus: user.verificationStatus,
+      },
+    });
+  },
+);

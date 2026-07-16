@@ -15,7 +15,7 @@ const navLinks = [
 
 export function Navbar() {
   const { user, logout } = useAuth();
-  const { count } = useCart();
+  const { count, toggleDrawer } = useCart();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -73,7 +73,11 @@ export function Navbar() {
             </button>
 
             {/* Cart */}
-            <Link href="/products" className="relative grid h-9 w-9 place-items-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-oceanic" aria-label="Cart">
+            <button
+              onClick={toggleDrawer}
+              className="relative grid h-9 w-9 place-items-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-oceanic"
+              aria-label="Open cart"
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
                 <circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none" />
                 <circle cx="18" cy="20" r="1.4" fill="currentColor" stroke="none" />
@@ -84,7 +88,7 @@ export function Navbar() {
                   {count}
                 </span>
               )}
-            </Link>
+            </button>
 
             {/* Auth */}
             {user ? (

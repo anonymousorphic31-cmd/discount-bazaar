@@ -167,5 +167,5 @@ export interface AuthUser {
   phoneNumber: string;
   name: string;
   role: UserRole;
-  verificationStatus?: "Pending" | "Approved" | "Rejected";
+  verificationStatus?: "Unverified" | "Pending" | "Approved" | "Rejected";
 }
