@@ -14,6 +14,7 @@ export interface ISupplierDetails {
   rating: number; // 0–5, maintained by admin QC
   isActive: boolean;
   catalogs: Types.Array<Types.ObjectId>; // product refs the supplier owns
+  stockAvailable?: number; // default stock count editable by supplier
 }
 
 const SupplierDetailsSchema = new Schema<ISupplierDetails>(
@@ -26,6 +27,7 @@ const SupplierDetailsSchema = new Schema<ISupplierDetails>(
     rating: { type: Number, default: 0, min: 0, max: 5 },
     isActive: { type: Boolean, default: true },
     catalogs: { type: [Schema.Types.ObjectId], default: [] },
+    stockAvailable: { type: Number, default: 0, min: 0 },
   },
   { _id: false, timestamps: false },
 );
@@ -61,6 +63,32 @@ const ShippingAddressSchema = new Schema<IShippingAddress>(
 /* User                                                               */
 /* ------------------------------------------------------------------ */
 
+export interface IContactVerification {
+  emailVerified: boolean;
+  phoneVerified: boolean;
+}
+
+export interface IBusinessInfo {
+  businessName?: string;
+  website?: string;
+  dropshipNetworkId?: string;
+}
+
+export interface ILegalDocs {
+  ownerName?: string;
+  cnicNumber?: string;
+  cnicFrontUrl?: string;
+  cnicBackUrl?: string;
+  ntnNumber?: string;
+  ntnDocUrl?: string;
+}
+
+export interface IBankDetails {
+  accountTitle?: string;
+  iban?: string;
+  bankCertUrl?: string;
+}
+
 export interface IUser extends Document {
   email?: string;
   phoneNumber: string; // E.164, unique
@@ -70,12 +98,17 @@ export interface IUser extends Document {
   dropshipNetworkId?: string;
   contactNumber?: string;
   cnicNtn?: string;
-  verificationStatus: "Unverified" | "Pending" | "Approved" | "Rejected";
-  reviewNote?: string;
+  verificationStatus: "Unverified" | "Pending" | "Needs_Correction" | "Verified" | "Rejected";
+  adminFeedback?: string;
+  contactVerification?: IContactVerification;
+  businessInfo?: IBusinessInfo;
+  legalDocs?: ILegalDocs;
+  bankDetails?: IBankDetails;
   businessProofUrls?: string[];
   passwordHash?: string;
   passwordSalt?: string;
   whatsappOtp?: string;
+  emailOtp?: string;
   otpExpiresAt?: Date;
   supplierDetails?: ISupplierDetails;
   shippingAddress?: IShippingAddress;
@@ -83,6 +116,44 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const ContactVerificationSchema = new Schema<IContactVerification>(
+  {
+    emailVerified: { type: Boolean, default: false },
+    phoneVerified: { type: Boolean, default: false },
+  },
+  { _id: false, timestamps: false },
+);
+
+const BusinessInfoSchema = new Schema<IBusinessInfo>(
+  {
+    businessName: { type: String, trim: true },
+    website: { type: String, trim: true },
+    dropshipNetworkId: { type: String, trim: true },
+  },
+  { _id: false, timestamps: false },
+);
+
+const LegalDocsSchema = new Schema<ILegalDocs>(
+  {
+    ownerName: { type: String, trim: true },
+    cnicNumber: { type: String, trim: true },
+    cnicFrontUrl: { type: String, trim: true },
+    cnicBackUrl: { type: String, trim: true },
+    ntnNumber: { type: String, trim: true },
+    ntnDocUrl: { type: String, trim: true },
+  },
+  { _id: false, timestamps: false },
+);
+
+const BankDetailsSchema = new Schema<IBankDetails>(
+  {
+    accountTitle: { type: String, trim: true },
+    iban: { type: String, trim: true, uppercase: true },
+    bankCertUrl: { type: String, trim: true },
+  },
+  { _id: false, timestamps: false },
+);
 
 const UserSchema = new Schema<IUser>(
   {
@@ -108,16 +179,21 @@ const UserSchema = new Schema<IUser>(
     cnicNtn: { type: String, trim: true },
     verificationStatus: {
       type: String,
-      enum: ["Unverified", "Pending", "Approved", "Rejected"],
-      default: "Approved",
+      enum: ["Unverified", "Pending", "Needs_Correction", "Verified", "Rejected"],
+      default: "Unverified",
       index: true,
     },
+    adminFeedback: { type: String, trim: true },
+    contactVerification: { type: ContactVerificationSchema, default: { emailVerified: false, phoneVerified: false } },
+    businessInfo: { type: BusinessInfoSchema, default: {} },
+    legalDocs: { type: LegalDocsSchema, default: {} },
+    bankDetails: { type: BankDetailsSchema, default: {} },
     businessProofUrls: { type: [String], default: [] },
-    reviewNote: { type: String, trim: true },
     passwordHash: { type: String, select: false },
     passwordSalt: { type: String, select: false },
     // Transient — never returned to clients.
     whatsappOtp: { type: String, select: false },
+    emailOtp: { type: String, select: false },
     otpExpiresAt: { type: Date, select: false },
     supplierDetails: {
       type: SupplierDetailsSchema,

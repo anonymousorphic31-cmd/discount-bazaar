@@ -11,12 +11,13 @@ import { SupplierApplicationsPanel } from "@/components/admin/SupplierApplicatio
 import { SquadOperationsPanel } from "@/components/admin/SquadOperationsPanel";
 import { FinanceLedgerPanel } from "@/components/admin/FinanceLedgerPanel";
 import { CustomerDirectoryPanel } from "@/components/admin/CustomerDirectoryPanel";
+import { DispatchedOrdersPanel } from "@/components/admin/DispatchedOrdersPanel";
 import { ToastStack, useToasts } from "@/components/ui/Toast";
 import { useAuth } from "@/lib/AuthContext";
 import { fetchDisputes, fetchPendingProducts } from "@/lib/api";
 import type { Dispute, PendingProduct } from "@/lib/types";
 
-type Tab = "overview" | "products" | "applications" | "queue" | "listing" | "ledger" | "squads" | "finance" | "customers";
+type Tab = "overview" | "products" | "applications" | "queue" | "listing" | "ledger" | "squads" | "finance" | "customers" | "orders";
 
 function AdminPortal() {
   const { token } = useAuth();
@@ -75,6 +76,7 @@ function AdminPortal() {
         { id: "squads", label: "Squad Operations", icon: "⬚" },
         { id: "finance", label: "Financial Ledger", icon: "₨" },
         { id: "customers", label: "Customer Directory", icon: "☻" },
+        { id: "orders", label: "Dispatched Orders", icon: "➤" },
         { id: "ledger", label: "Conflict Resolution", icon: "⚖" },
       ]}
       activeTab={tab}
@@ -196,6 +198,10 @@ function AdminPortal() {
 
         {tab === "customers" && (
           <CustomerDirectoryPanel onNotify={(message, ok) => pushToast(message, ok ? "success" : "error")} />
+        )}
+
+        {tab === "orders" && (
+          <DispatchedOrdersPanel onNotify={(message, ok) => pushToast(message, ok ? "success" : "error")} />
         )}
       </div>
 

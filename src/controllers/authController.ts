@@ -216,7 +216,10 @@ export const registerSupplierApplication = asyncHandler(async (req: Request, res
   // Generate OTP for verification
   const { code, expiresAt } = generateOtp();
 
-  // Create the supplier account with Unverified status
+  // Create the supplier account. Registration ONLY creates the account —
+  // no data is sent to admin. The supplier logs in and submits business
+  // verification (KYC) from their dashboard, which is what triggers the
+  // admin review queue.
   const user = await User.create({
     phoneNumber: contactNumber.trim(),
     email: email.trim().toLowerCase(),
@@ -224,17 +227,17 @@ export const registerSupplierApplication = asyncHandler(async (req: Request, res
     name: businessName.trim(),
     businessName: businessName.trim(),
     contactNumber: contactNumber.trim(),
-    verificationStatus: "Pending",
+    verificationStatus: "Unverified",
+    contactVerification: { emailVerified: false, phoneVerified: false },
     passwordHash: hash,
     passwordSalt: salt,
-    whatsappOtp: code,
-    otpExpiresAt: expiresAt,
     supplierDetails: {
       companyName: businessName.trim(),
       contactPerson: businessName.trim(),
       rating: 0,
       isActive: false,
       catalogs: [],
+      stockAvailable: 0,
     },
   });
 

@@ -19,7 +19,9 @@ router.get("/profile/address", requireAuth, getShippingAddress);
 // Admin-only — pick a supplier to attribute a direct listing to.
 router.get("/suppliers", requireAuth, requireRole("Admin"), getSuppliers);
 
-// Supplier self-service — submit business verification (KYC)
+// Supplier self-service — submit full KYC business verification
+router.put("/supplier/verify/submit", requireAuth, requireRole("Supplier"), submitSupplierVerification);
+// Legacy alias kept for backward compatibility
 router.put("/supplier/verify", requireAuth, requireRole("Supplier"), submitSupplierVerification);
 
 // Admin-only — review supplier applications.

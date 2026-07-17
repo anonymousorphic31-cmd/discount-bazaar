@@ -476,6 +476,81 @@ export const rejectProduct = asyncHandler(
 );
 
 /**
+ * GET /api/products/supplier/my-deals
+ * Supplier-only. Returns all products proposed by the authenticated supplier,
+ * grouped by approval status: pending (proposed), rejected, and active.
+ */
+export const getSupplierMyDeals = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const supplierId = req.user?.userId;
+    if (!supplierId) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+
+    const products = await Product.find({ supplierId: new Types.ObjectId(supplierId) })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const proposed = products.filter((p) => p.approvalStatus === ApprovalStatusEnum.Pending);
+    const rejected = products.filter((p) => p.approvalStatus === ApprovalStatusEnum.Rejected);
+    const active = products.filter((p) => p.approvalStatus === ApprovalStatusEnum.Approved && p.isActive);
+
+    res.status(200).json({
+      data: { proposed, rejected, active },
+    });
+  },
+);
+
+/**
+ * PATCH /api/products/supplier/:id/stock
+ * Supplier-only. Updates the stockAvailable count on a product owned by the
+ * authenticated supplier.
+ */
+interface UpdateStockBody {
+  stockAvailable?: number;
+}
+
+export const updateSupplierStock = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const supplierId = req.user?.userId;
+    const { id } = req.params;
+    const { stockAvailable } = req.body as UpdateStockBody;
+
+    if (!supplierId) {
+      res.status(401).json({ error: "Authentication required." });
+      return;
+    }
+    if (!id || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: "A valid product id is required." });
+      return;
+    }
+    if (typeof stockAvailable !== "number" || !Number.isFinite(stockAvailable) || stockAvailable < 0) {
+      res.status(400).json({ error: "stockAvailable must be a non-negative number." });
+      return;
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({ error: "Product not found." });
+      return;
+    }
+    if (product.supplierId.toString() !== supplierId) {
+      res.status(403).json({ error: "This product does not belong to you." });
+      return;
+    }
+
+    product.stockAvailable = stockAvailable;
+    await product.save();
+
+    res.status(200).json({
+      message: "Stock updated.",
+      data: { id: product._id.toString(), stockAvailable: product.stockAvailable },
+    });
+  },
+);
+
+/**
  * GET /api/products/admin/all
  * Admin-only. Returns all products including inactive ones for dashboard management.
  */

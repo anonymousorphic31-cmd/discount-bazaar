@@ -441,14 +441,22 @@ export async function verifySupplierOtp(
 
 export async function submitSupplierVerification(
   payload: {
-    dropshipNetworkId: string;
-    cnicNtn: string;
-    businessProofUrls: string[];
+    contactVerification: { emailVerified: boolean; phoneVerified: boolean };
+    businessInfo: { businessName: string; website?: string; dropshipNetworkId: string };
+    legalDocs: {
+      ownerName: string;
+      cnicNumber: string;
+      cnicFrontUrl: string;
+      cnicBackUrl: string;
+      ntnNumber: string;
+      ntnDocUrl: string;
+    };
+    bankDetails: { accountTitle: string; iban: string; bankCertUrl: string };
   },
   token: string,
 ): Promise<{ message: string; data: { verificationStatus: string } }> {
   const result = await apiFetch<{ message: string; data: { verificationStatus: string } }>(
-    "/api/users/supplier/verify",
+    "/api/users/supplier/verify/submit",
     {
       method: "PUT",
       token,
@@ -456,6 +464,45 @@ export async function submitSupplierVerification(
     },
   );
   return result;
+}
+
+/* Supplier deals + stock management */
+export async function fetchSupplierMyDeals(token: string): Promise<{
+  proposed: Product[];
+  rejected: Product[];
+  active: Product[];
+}> {
+  const result = await apiFetch<{ data: { proposed: Product[]; rejected: Product[]; active: Product[] } }>(
+    "/api/products/supplier/my-deals",
+    { token },
+  );
+  return result.data;
+}
+
+export async function updateSupplierStock(
+  productId: string,
+  stockAvailable: number,
+  token: string,
+): Promise<{ stockAvailable: number }> {
+  const result = await apiFetch<{ data: { stockAvailable: number } }>(
+    `/api/products/supplier/${productId}/stock`,
+    { method: "PATCH", token, body: JSON.stringify({ stockAvailable }) },
+  );
+  return result.data;
+}
+
+/* Admin dispatched orders + cancel */
+export async function adminFetchDispatchedOrders(token: string): Promise<ManifestOrder[]> {
+  const result = await apiFetch<{ data: ManifestOrder[] }>("/api/orders/admin/dispatched", { token });
+  return result.data;
+}
+
+export async function adminCancelOrder(orderId: string, token: string): Promise<{ logisticsStatus: string }> {
+  const result = await apiFetch<{ data: { logisticsStatus: string } }>(
+    `/api/orders/admin/${orderId}/cancel`,
+    { method: "PUT", token },
+  );
+  return result.data;
 }
 
 /* ------------------------------------------------------------------ */
@@ -586,11 +633,11 @@ export async function fetchSupplierApplications(token: string): Promise<Supplier
 
 export async function resolveSupplierApplication(
   applicationId: string,
-  payload: { decision: "Approved" | "Rejected"; reviewNote?: string },
+  payload: { action: "Approve" | "Reject" | "Request_Changes"; feedback?: string },
   token: string,
-): Promise<{ id: string; verificationStatus: "Pending" | "Approved" | "Rejected"; reviewNote?: string | null }> {
+): Promise<{ id: string; verificationStatus: string; adminFeedback?: string | null }> {
   const result = await apiFetch<{
-    data: { id: string; verificationStatus: "Pending" | "Approved" | "Rejected"; reviewNote?: string | null };
+    data: { id: string; verificationStatus: string; adminFeedback?: string | null };
   }>(`/api/users/supplier-applications/${applicationId}/decision`, {
     method: "PATCH",
     token,

@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
+  adminCancelOrder,
   createStandardOrder,
   courierWebhook,
+  getAdminDispatchedOrders,
   getBuyerOrders,
   getSupplierManifests,
   updateOrderTracking,
@@ -24,5 +26,9 @@ router.get("/manifest", requireAuth, requireRole("Supplier"), getSupplierManifes
 
 // Protected (Supplier) — attach a courier tracking number to an order.
 router.put("/:id/tracking", requireAuth, requireRole("Supplier"), updateOrderTracking);
+
+// Admin-only — view all dispatched orders + cancel an order.
+router.get("/admin/dispatched", requireAuth, requireRole("Admin"), getAdminDispatchedOrders);
+router.put("/admin/:id/cancel", requireAuth, requireRole("Admin"), adminCancelOrder);
 
 export default router;

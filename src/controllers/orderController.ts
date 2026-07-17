@@ -12,7 +12,7 @@ import {
 } from "../types/enums.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { computeOrderFinance, roundPKR } from "../utils/orderFinance.js";
-import { captureFunds, createAuthorization } from "../utils/safepay.js";
+import { captureFunds, createAuthorization, voidFunds } from "../utils/safepay.js";
 
 /* ------------------------------------------------------------------ */
 /* Step 1 — courierWebhook (Logistics Sync)                           */
@@ -307,8 +307,81 @@ export const getSupplierManifests = asyncHandler(
 );
 
 /* ------------------------------------------------------------------ */
-/* Step 2.5 — updateOrderTracking (Supplier)                          */
+/* Step 2.6 — getAdminDispatchedOrders (Admin)                        */
 /* ------------------------------------------------------------------ */
+
+/**
+ * GET /api/orders/admin/dispatched
+ * Admin-only. Returns all orders grouped by their dispatch/logistics state
+ * so the admin can see exactly which orders were dispatched to which
+ * supplier, plus the full history. Includes product and supplier details.
+ */
+export const getAdminDispatchedOrders = asyncHandler(
+  async (_req: Request, res: Response): Promise<void> => {
+    const orders = await Order.find({})
+      .populate({ path: "productId", select: "title slug images category pricing" })
+      .populate({ path: "supplierId", select: "name phoneNumber email supplierDetails.companyName" })
+      .populate({ path: "buyerId", select: "name phoneNumber" })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({ data: orders });
+  },
+);
+
+/* ------------------------------------------------------------------ */
+/* Step 2.7 — adminCancelOrder (Admin)                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PUT /api/orders/admin/:id/cancel
+ * Admin-only. Cancels an order at any non-terminal state. Voids the
+ * associated Safepay hold if still authorized so the buyer is refunded
+ * their upfront deposit. Flips logisticsStatus to Cancelled.
+ */
+export const adminCancelOrder = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    if (!id || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: "A valid order id is required." });
+      return;
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      res.status(404).json({ error: "Order not found." });
+      return;
+    }
+    if (order.logisticsStatus === LogisticsEnum.Delivered || order.logisticsStatus === LogisticsEnum.Cancelled) {
+      res.status(409).json({ error: "This order is already in a terminal logistics state." });
+      return;
+    }
+
+    // Void the associated transaction's hold if it is still Authorized.
+    const txn = await Transaction.findById(order.transactionId);
+    if (txn && txn.escrowState === EscrowStateEnum.Authorized) {
+      try {
+        await voidFunds(txn.safepayTrackerId);
+        txn.escrowState = EscrowStateEnum.Voided;
+        txn.voidedAt = new Date();
+        await txn.save();
+      } catch (err) {
+        console.error(`[admin cancel] void failed for txn ${txn._id}:`, err);
+      }
+    }
+
+    order.logisticsStatus = LogisticsEnum.Cancelled;
+    await order.save();
+
+    res.status(200).json({
+      message: "Order cancelled. Buyer's deposit hold has been voided.",
+      data: {
+        orderId: order._id.toString(),
+        logisticsStatus: order.logisticsStatus,
+      },
+    });
+  },
+);
 
 interface UpdateTrackingBody {
   trackingNumber?: string;

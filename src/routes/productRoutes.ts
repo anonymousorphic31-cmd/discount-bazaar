@@ -8,9 +8,11 @@ import {
   getCategories,
   getPendingProducts,
   getProductById,
+  getSupplierMyDeals,
   proposeProduct,
   rejectProduct,
   updateAdminProduct,
+  updateSupplierStock,
 } from "../controllers/productController.js";
 import { requireAuth, requireRole } from "../middlewares/authMiddleware.js";
 import { uploadMedia } from "../utils/multerConfig.js";
@@ -46,6 +48,10 @@ router.delete("/admin/:id", requireAuth, requireRole("Admin"), deleteAdminProduc
 
 // Supplier-only: propose a new product for admin review
 router.put("/supplier/propose", requireAuth, requireRole("Supplier"), proposeProduct);
+
+// Supplier-only: view own deals grouped by status + update stock
+router.get("/supplier/my-deals", requireAuth, requireRole("Supplier"), getSupplierMyDeals);
+router.patch("/supplier/:id/stock", requireAuth, requireRole("Supplier"), updateSupplierStock);
 
 router.get("/:id", getProductById);
 

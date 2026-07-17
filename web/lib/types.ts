@@ -20,6 +20,7 @@ export interface Product {
   pricing: ProductPricing;
   dualCheckoutEnabled: boolean;
   maxSquadMembers: number;
+  stockAvailable: number;
   isActive: boolean;
   approvalStatus?: ProductApprovalStatus;
   createdAt: string;
@@ -34,11 +35,23 @@ export interface SupplierSummary {
 
 export interface SupplierApplication extends SupplierSummary {
   email?: string;
-  verificationStatus: "Pending" | "Approved" | "Rejected";
+  verificationStatus: "Unverified" | "Pending" | "Needs_Correction" | "Verified" | "Rejected";
+  adminFeedback?: string;
   reviewNote?: string;
   dropshipNetworkId?: string;
   cnicNtn?: string;
   contactNumber?: string;
+  contactVerification?: { emailVerified: boolean; phoneVerified: boolean };
+  businessInfo?: { businessName?: string; website?: string; dropshipNetworkId?: string };
+  legalDocs?: {
+    ownerName?: string;
+    cnicNumber?: string;
+    cnicFrontUrl?: string;
+    cnicBackUrl?: string;
+    ntnNumber?: string;
+    ntnDocUrl?: string;
+  };
+  bankDetails?: { accountTitle?: string; iban?: string; bankCertUrl?: string };
   createdAt: string;
 }
 
@@ -182,8 +195,10 @@ export interface ShippingAddress {
 export interface AuthUser {
   id: string;
   phoneNumber: string;
+  email?: string;
   name: string;
   role: UserRole;
-  verificationStatus?: "Unverified" | "Pending" | "Approved" | "Rejected";
+  verificationStatus?: "Unverified" | "Pending" | "Needs_Correction" | "Verified" | "Rejected";
+  adminFeedback?: string;
   shippingAddress?: ShippingAddress | null;
 }

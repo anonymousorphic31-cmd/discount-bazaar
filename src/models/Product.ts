@@ -40,6 +40,7 @@ export interface IProduct extends Document {
   pricing: IProductPricing;
   dualCheckoutEnabled: boolean;
   maxSquadMembers: number; // per project spec, target squad size
+  stockAvailable: number; // live inventory count editable by supplier
   isActive: boolean;
   // Approved products are admin-uploaded (bypasses review) or supplier
   // proposals that have cleared the admin Proposal Queue. Pending proposals
@@ -61,6 +62,7 @@ const ProductSchema = new Schema<IProduct>(
     pricing: { type: ProductPricingSchema, required: true },
     dualCheckoutEnabled: { type: Boolean, default: true, required: true },
     maxSquadMembers: { type: Number, required: true, min: 1, default: 30 },
+    stockAvailable: { type: Number, required: true, min: 0, default: 0, index: true },
     isActive: { type: Boolean, default: true, index: true },
     approvalStatus: {
       type: String,

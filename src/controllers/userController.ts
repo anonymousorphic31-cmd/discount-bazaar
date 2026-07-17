@@ -1,11 +1,12 @@
 import { type Request, type Response } from "express";
+import { Types } from "mongoose";
 import User from "../models/User.js";
 import { UserRole as UserRoleEnum } from "../types/enums.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 interface SupplierApplicationBody {
-  decision?: "Approved" | "Rejected";
-  reviewNote?: string;
+  action?: "Approve" | "Reject" | "Request_Changes";
+  feedback?: string;
 }
 
 interface SupplierMessageBody {
@@ -20,7 +21,7 @@ interface SupplierMessageBody {
 export const getSuppliers = asyncHandler(
   async (_req: Request, res: Response): Promise<void> => {
     const suppliers = await User.find({ role: UserRoleEnum.Supplier })
-      .select("name phoneNumber email verificationStatus reviewNote supplierDetails.companyName dropshipNetworkId cnicNtn contactNumber")
+      .select("name phoneNumber email verificationStatus adminFeedback supplierDetails.companyName dropshipNetworkId cnicNtn contactNumber businessInfo legalDocs bankDetails contactVerification")
       .sort({ name: 1 })
       .lean();
 
@@ -37,7 +38,7 @@ export const getSuppliers = asyncHandler(
 export const getSupplierApplications = asyncHandler(
   async (_req: Request, res: Response): Promise<void> => {
     const applications = await User.find({ role: UserRoleEnum.Supplier, verificationStatus: "Pending" })
-      .select("name phoneNumber email verificationStatus reviewNote supplierDetails.companyName dropshipNetworkId cnicNtn contactNumber createdAt")
+      .select("name phoneNumber email verificationStatus adminFeedback supplierDetails.companyName dropshipNetworkId cnicNtn contactNumber businessInfo legalDocs bankDetails contactVerification createdAt")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -47,54 +48,77 @@ export const getSupplierApplications = asyncHandler(
 
 /**
  * PATCH /api/users/supplier-applications/:id/decision
- * Admin-only. Approves or rejects a supplier application and stores the review note.
+ * Admin-only. Approves, rejects (permanent), or requests changes on a
+ * supplier's verification application. Sets verificationStatus and
+ * saves adminFeedback when requesting changes.
  */
 export const resolveSupplierApplication = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { decision, reviewNote } = req.body as SupplierApplicationBody;
+    const { action, feedback } = req.body as SupplierApplicationBody;
 
-    if (!id) {
-      res.status(400).json({ error: "A supplier application id is required." });
+    if (!id || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: "A valid supplier id is required." });
       return;
     }
-    if (decision !== "Approved" && decision !== "Rejected") {
-      res.status(400).json({ error: "decision must be Approved or Rejected." });
+    if (action !== "Approve" && action !== "Reject" && action !== "Request_Changes") {
+      res.status(400).json({ error: "action must be 'Approve', 'Reject', or 'Request_Changes'." });
       return;
     }
-
-    const application = await User.findById(id);
-    if (!application || application.role !== UserRoleEnum.Supplier) {
-      res.status(404).json({ error: "Supplier application not found." });
+    if (action === "Request_Changes" && !feedback?.trim()) {
+      res.status(400).json({ error: "feedback is required when requesting changes." });
       return;
     }
 
-    application.verificationStatus = decision;
-    application.reviewNote = reviewNote?.trim() || undefined;
-    if (decision === "Approved") {
-      if (!application.supplierDetails) {
-        application.supplierDetails = {
-          companyName: application.name,
-          contactPerson: application.name,
+    const user = await User.findById(id);
+    if (!user || user.role !== UserRoleEnum.Supplier) {
+      res.status(404).json({ error: "Supplier not found." });
+      return;
+    }
+    if (user.verificationStatus !== "Pending") {
+      res.status(409).json({
+        error: `Supplier is not in Pending state. Current status: ${user.verificationStatus}.`,
+      });
+      return;
+    }
+
+    if (action === "Approve") {
+      user.verificationStatus = "Verified";
+      user.adminFeedback = undefined;
+      if (user.supplierDetails) {
+        user.supplierDetails.isActive = true;
+      } else {
+        user.supplierDetails = {
+          companyName: user.name,
+          contactPerson: user.name,
           rating: 0,
           isActive: true,
           catalogs: [] as unknown as import("mongoose").Types.Array<import("mongoose").Types.ObjectId>,
+          stockAvailable: 0,
         };
       }
-      application.supplierDetails.isActive = true;
+    } else if (action === "Reject") {
+      user.verificationStatus = "Rejected";
+      user.adminFeedback = feedback?.trim() || undefined;
+    } else {
+      // Request_Changes
+      user.verificationStatus = "Needs_Correction";
+      user.adminFeedback = feedback!.trim();
     }
-    await application.save();
 
-    if (reviewNote?.trim()) {
-      console.info(`[supplier review] ${decision} for ${application.phoneNumber}: ${reviewNote.trim()}`);
-    }
+    await user.save();
 
     res.status(200).json({
-      message: `Supplier application ${decision.toLowerCase()}.`,
+      message:
+        action === "Approve"
+          ? "Supplier verified and approved."
+          : action === "Reject"
+            ? "Supplier application rejected."
+            : "Changes requested from supplier.",
       data: {
-        id: application._id.toString(),
-        verificationStatus: application.verificationStatus,
-        reviewNote: application.reviewNote ?? null,
+        id: user._id.toString(),
+        verificationStatus: user.verificationStatus,
+        adminFeedback: user.adminFeedback ?? null,
       },
     });
   },
@@ -220,16 +244,38 @@ export const messageSupplier = asyncHandler(
 );
 
 interface SupplierVerifyBody {
-  dropshipNetworkId?: string;
-  cnicNtn?: string;
-  businessProofUrls?: string[];
+  // Contact verification
+  contactVerification?: { emailVerified?: boolean; phoneVerified?: boolean };
+  // Business info
+  businessInfo?: {
+    businessName?: string;
+    website?: string;
+    dropshipNetworkId?: string;
+  };
+  // Legal docs
+  legalDocs?: {
+    ownerName?: string;
+    cnicNumber?: string;
+    cnicFrontUrl?: string;
+    cnicBackUrl?: string;
+    ntnNumber?: string;
+    ntnDocUrl?: string;
+  };
+  // Bank details
+  bankDetails?: {
+    accountTitle?: string;
+    iban?: string;
+    bankCertUrl?: string;
+  };
 }
 
 /**
- * PUT /api/users/supplier/verify
- * Supplier-only (self-service). Accepts KYC details (dropship network,
- * CNIC/NTN, business proof URLs) and flips the authenticated supplier's
- * verificationStatus from 'Unverified' to 'Pending'.
+ * PUT /api/supplier/verify/submit
+ * Supplier-only (self-service). Accepts the full KYC payload — contact
+ * verification flags, business info, legal docs, and bank details — and
+ * flips the authenticated supplier's verificationStatus to 'Pending'.
+ * Clears any prior adminFeedback. Both email and phone must be verified
+ * before the form can be submitted.
  */
 export const submitSupplierVerification = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
@@ -239,29 +285,78 @@ export const submitSupplierVerification = asyncHandler(
       return;
     }
 
-    const { dropshipNetworkId, cnicNtn, businessProofUrls } = req.body as SupplierVerifyBody;
-
-    if (!dropshipNetworkId?.trim() || !cnicNtn?.trim()) {
-      res.status(400).json({ error: "dropshipNetworkId and cnicNtn are required." });
-      return;
-    }
+    const { contactVerification, businessInfo, legalDocs, bankDetails } =
+      req.body as SupplierVerifyBody;
 
     const user = await User.findById(userId);
     if (!user || user.role !== UserRoleEnum.Supplier) {
       res.status(403).json({ error: "Only supplier accounts can submit business verification." });
       return;
     }
-    if (user.verificationStatus !== "Unverified") {
+    // Allow re-submission from Unverified OR Needs_Correction.
+    if (user.verificationStatus !== "Unverified" && user.verificationStatus !== "Needs_Correction") {
       res.status(409).json({
         error: `Business verification already submitted. Current status: ${user.verificationStatus}.`,
       });
       return;
     }
 
-    user.dropshipNetworkId = dropshipNetworkId.trim();
-    user.cnicNtn = cnicNtn.trim();
-    user.businessProofUrls = (businessProofUrls ?? []).slice(0, 4);
+    // Enforce OTP verification for both channels before accepting the form.
+    const emailVerified = contactVerification?.emailVerified === true;
+    const phoneVerified = contactVerification?.phoneVerified === true;
+    if (!emailVerified || !phoneVerified) {
+      res.status(400).json({ error: "Both email and phone must be verified via OTP before submitting." });
+      return;
+    }
+
+    // Validate required fields.
+    const bInfo = businessInfo ?? {};
+    const legal = legalDocs ?? {};
+    const bank = bankDetails ?? {};
+    if (!bInfo.businessName?.trim() || !bInfo.dropshipNetworkId?.trim()) {
+      res.status(400).json({ error: "businessName and dropshipNetworkId are required." });
+      return;
+    }
+    if (!legal.ownerName?.trim() || !legal.cnicNumber?.trim() || !legal.cnicFrontUrl?.trim() || !legal.cnicBackUrl?.trim()) {
+      res.status(400).json({ error: "ownerName, cnicNumber, cnicFrontUrl, and cnicBackUrl are required." });
+      return;
+    }
+    if (!legal.ntnNumber?.trim() || !legal.ntnDocUrl?.trim()) {
+      res.status(400).json({ error: "ntnNumber and ntnDocUrl are required." });
+      return;
+    }
+    if (!bank.accountTitle?.trim() || !bank.iban?.trim() || !bank.bankCertUrl?.trim()) {
+      res.status(400).json({ error: "accountTitle, iban, and bankCertUrl are required." });
+      return;
+    }
+
+    user.contactVerification = { emailVerified, phoneVerified };
+    user.businessInfo = {
+      businessName: bInfo.businessName.trim(),
+      website: bInfo.website?.trim() || undefined,
+      dropshipNetworkId: bInfo.dropshipNetworkId.trim(),
+    };
+    user.legalDocs = {
+      ownerName: legal.ownerName.trim(),
+      cnicNumber: legal.cnicNumber.trim(),
+      cnicFrontUrl: legal.cnicFrontUrl.trim(),
+      cnicBackUrl: legal.cnicBackUrl.trim(),
+      ntnNumber: legal.ntnNumber.trim(),
+      ntnDocUrl: legal.ntnDocUrl.trim(),
+    };
+    user.bankDetails = {
+      accountTitle: bank.accountTitle.trim(),
+      iban: bank.iban.trim().toUpperCase(),
+      bankCertUrl: bank.bankCertUrl.trim(),
+    };
+    // Keep legacy fields in sync for backward compatibility with admin lists.
+    user.dropshipNetworkId = bInfo.dropshipNetworkId.trim();
+    user.cnicNtn = legal.cnicNumber.trim();
+    user.businessName = bInfo.businessName.trim();
+    user.businessProofUrls = [legal.cnicFrontUrl, legal.cnicBackUrl, legal.ntnDocUrl, bank.bankCertUrl].filter(Boolean);
+
     user.verificationStatus = "Pending";
+    user.adminFeedback = undefined;
     await user.save();
 
     res.status(200).json({

@@ -5,11 +5,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { useCart } from "@/lib/CartContext";
 import { getShippingAddress, initiateEscrowCheckout, saveShippingAddress } from "@/lib/api";
-import {
-  formatPKR,
-  squadMaxDiscountPercent,
-} from "@/lib/format";
-import { getDeliveryFee } from "@/lib/pakistanLocations";
+import { formatPKR, squadMaxDiscountPercent } from "@/lib/format";
 import type { Product, ShippingAddress, Squad } from "@/lib/types";
 import { ShippingAddressForm } from "@/components/checkout/ShippingAddressForm";
 
@@ -41,10 +37,11 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
   const subtotal = fullyDiscountedUnitPrice * quantity;
 
   const depositPct = product.deposit_percentage ?? 10;
-  const deliveryFee = address ? getDeliveryFee(address.province, address.city) : 0;
-  const totalOrderValue = subtotal + deliveryFee;
   const totalDeposit = Math.round(subtotal * (depositPct / 100));
-  const remainingCOD = Math.max(0, totalOrderValue - totalDeposit);
+  // COD balance is only the remaining product subtotal after the upfront
+  // deposit. Delivery charges are billed separately by the courier at
+  // the door, so they are NOT folded into the COD amount shown here.
+  const remainingCOD = Math.max(0, subtotal - totalDeposit);
   const progress = Math.min(100, Math.round((currentMembers / targetMembers) * 100));
   const isFull = currentMembers >= targetMembers;
 
@@ -218,6 +215,7 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
                 {formatPKR(totalDeposit)} today ({depositPct}% × {quantity} {quantity > 1 ? "units" : "unit"})
               </p>
               <p className="mt-0.5">{formatPKR(remainingCOD)} on delivery (COD)</p>
+              <p className="mt-1 text-[10px] italic text-slate-400">Note: Delivery charges will be applied separately.</p>
             </div>
           </div>
 
@@ -276,9 +274,6 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
             {/* Financial breakdown */}
             <div className="space-y-2 rounded-xl border border-slate-200 p-4">
               <SummaryRow label={`Subtotal (${quantity} × ${formatPKR(fullyDiscountedUnitPrice)})`} value={formatPKR(subtotal)} />
-              <SummaryRow label="Delivery Fee" value={formatPKR(deliveryFee)} />
-              <div className="my-2 border-t border-dashed border-slate-200" />
-              <SummaryRow label="Total Order Value" value={formatPKR(totalOrderValue)} bold />
               <div className="my-2 border-t border-dashed border-slate-200" />
               <SummaryRow
                 label={`Upfront Deposit (${depositPct}%)`}
@@ -286,6 +281,7 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
                 accent
               />
               <SummaryRow label="Remaining on Delivery (COD)" value={formatPKR(remainingCOD)} />
+              <p className="pt-1 text-[10px] italic text-slate-400">Note: Delivery charges will be applied separately.</p>
             </div>
 
             {error && <p className="text-xs text-red-600">{error}</p>}
@@ -326,7 +322,6 @@ export function DualCheckout({ product, activeSquad }: { product: Product; activ
               src={safepayCheckoutUrl}
               className="h-[calc(85vh-49px)] w-full border-0"
               allow="payment; publickey-credentials-get; web-auth; https://sandbox.api.getsafepay.com https://getsafepay.com"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-payment allow-top-navigation-by-user-activation"
               title="Safepay Checkout"
             />
           </div>
